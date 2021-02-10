@@ -26,7 +26,7 @@
 %
 % Chris Gnam - 2019
 
-function [mu, P, deviations, sigmas_out] = UT(systemModel, dt, sigmas, Wm, Wc, R, n_out, varargin)
+function [mu, P, deviations, sigmas_out] = ut(systemModel, dt, sigmas, Wm, Wc, R, n_out, varargin)
     
     num_sigmas = size(sigmas,2);
     sigmas_out = zeros(n_out, num_sigmas);

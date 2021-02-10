@@ -16,11 +16,18 @@ function [imagePoints,varargout] = camera(rotMat,position,K,fov, worldPoints)
     
     % Reject points which do not fall on the sensor, or which are behind
     % the camera
-    inds1 = abs(imagePoints(1,:))>fov(1);
-    inds2 = abs(imagePoints(2,:))>fov(2);
-    inds3 = homogeneous(3,:)>0;
-    inds = (inds1 | inds2 | inds3);
-    imagePoints(:,inds) = [];
+    if ~any(isnan(fov))
+        inds1 = abs(imagePoints(1,:))>fov(1);
+        inds2 = abs(imagePoints(2,:))>fov(2);
+        inds3 = homogeneous(3,:)>0;
+        inds = (inds1 | inds2 | inds3);
+        imagePoints(:,inds) = [];
+    else
+        inds = nan;
+    end
+    
+    % Flip the Image along both axes:
+    imagePoints = -imagePoints;
 
     % Pass out keep indices for color rendering (if requested)
     if nargout == 2
