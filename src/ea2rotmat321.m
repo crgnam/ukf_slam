@@ -1,16 +1,6 @@
-function [A] = e2a(roll, pitch, yaw)
+function [A] = ea2rotmat321(roll, pitch, yaw)
 % This function calculates the shuster quaternion attitude of the input
 % roll, pitch yaw euler angles
-
-%     if roll == 180
-%         roll = 179.99;
-%     end
-%     if pitch == 180
-%         pitch = 179.99;
-%     end
-%     if yaw == 180
-%         yaw = 179.99;
-%     end
 
     T1 = [1       0             0;
           0   cosd(roll)   sind(roll);

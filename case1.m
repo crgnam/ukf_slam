@@ -1,3 +1,4 @@
+%% Case 1: Static Body, No Measurement Noise
 clear; matlabrc; clc; close all
 addpath(genpath('src'))
 addpath(genpath('ukf'))
@@ -117,17 +118,17 @@ figure()
     plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
     legend('truth map','estimated map','truth trajectory','estimated trajectory')
 
-% % Make animation:
-% v = VideoWriter('slam_results.mp4','MPEG-4');
-% v.Quality = 90;
-% open(v)
-% for ii = 1:360
-%     view([ii 20])
-%     drawnow
-%     frame = getframe(gcf);
-%     writeVideo(v,frame);
-% end
-% close(v)
+% Make animation:
+v = VideoWriter('slam_results.mp4','MPEG-4');
+v.Quality = 90;
+open(v)
+for ii = 1:360
+    view([ii 20])
+    drawnow
+    frame = getframe(gcf);
+    writeVideo(v,frame);
+end
+close(v)
 
 %% Show the history of the SLAM estimates:
 % estimated_map = reshape(X_hat(7:end,1),[],3)';

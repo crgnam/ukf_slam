@@ -1,4 +1,4 @@
-function [predicted_measurement] = UKFMeasurementModel(~,X,rotMat,K, avails)
+function [predicted_measurement] = ukfCamera(~,X,rotMat,K, avails)
     r = X(1:3);
 %     v = X(4:6);
 %     N = (length(X)-6)/3;
