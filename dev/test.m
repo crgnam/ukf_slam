@@ -1,5 +1,5 @@
 clear; matlabrc; clc; close all;
-addpath(genpath('src'))
+addpath(genpath('../src'))
 
 worldPoints = randn(3,100);
 colors = rand(length(worldPoints),3);

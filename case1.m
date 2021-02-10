@@ -1,13 +1,14 @@
 %% Case 1: Static Body, No Measurement Noise
 clear; matlabrc; clc; close all
 addpath(genpath('src'))
+addpath(genpath('lib'))
 addpath(genpath('ukf'))
 rng(1)
 
 % Setup:
-N = 100; % Number of features to track
+N = 30; % Number of features to track
 dt = 60;
-tspan = dt:dt:2*86400;
+tspan = dt:dt:3*86400;
 
 f = .055; %(m) Camera focal length
 sx = 3; %sensor x in mm
@@ -108,27 +109,34 @@ end
 %% Show the Final Estimated Map:   
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
+% Use Kabsch algorithm to transform to truth space:
+[regParams,Bfit,ErrorStats] = absor([x;y;z],estimated_map,'doScale',true,'doTrans',true);
+R2 = regParams.R;
+t2 = regParams.t;
+S2 = regParams.s;
+estimated_map = (1/S2)*R2'*(estimated_map - t2);
+
 figure()
-    scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
+    scatter3(x,y,z,20,'b','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
-             30,'r','x'); hold on; axis equal; grid on
-    plot3(X(1,:),X(2,:),X(3,:),'b')
-    plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
-    plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
-    plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
+             40,'r','x'); hold on; axis equal; grid on
+%     plot3(X(1,:),X(2,:),X(3,:),'b')
+%     plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
+%     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
+%     plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'or','MarkerSize',20)
     legend('truth map','estimated map','truth trajectory','estimated trajectory')
 
 % Make animation:
-v = VideoWriter('slam_results.mp4','MPEG-4');
-v.Quality = 90;
-open(v)
-for ii = 1:360
-    view([ii 20])
-    drawnow
-    frame = getframe(gcf);
-    writeVideo(v,frame);
-end
-close(v)
+% v = VideoWriter('slam_results.mp4','MPEG-4');
+% v.Quality = 90;
+% open(v)
+% for ii = 1:360
+%     view([ii 20])
+%     drawnow
+%     frame = getframe(gcf);
+%     writeVideo(v,frame);
+% end
+% close(v)
 
 %% Show the history of the SLAM estimates:
 % estimated_map = reshape(X_hat(7:end,1),[],3)';

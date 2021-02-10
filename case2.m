@@ -8,7 +8,7 @@ addpath(genpath('ukf'))
 rng(1)
 
 % Setup:
-N = 30; % Number of features to track
+N = 50; % Number of features to track
 dt = 60;
 tspan = dt:dt:4*86400;
 w_bennu = 2*pi/(4.3*60*60); %(rad/s) Angular rate of Bennu
@@ -53,8 +53,10 @@ X(:,1) = [r; v];
 % Initialize UKF:
 P = diag([10*ones(1,3),...
           0.1*ones(1,3),...
-          1,1,1,.05,...
-          250*ones(1,3*N)]); % Initial State Covariance Matrix
+          0.5*ones(1,3),.05,...
+          250*ones(1,N),...
+          25*ones(1,N),...
+          25*ones(1,N)]); % Initial State Covariance Matrix
 Q = diag([1e-9*ones(1,3),...
           1e-9*ones(1,3),...
           1e-9*ones(1,4),...
@@ -62,7 +64,7 @@ Q = diag([1e-9*ones(1,3),...
 
 % TODO: Hardocded measurement covariance matrix, assuming ALL features are
 % visible at every time step (valid for first pass)
-pix_sig = 0.001;
+pix_sig = fov(1)/1920;
 R = diag((pix_sig^2)*ones(1,2*N));
 
 % Initial estimate of the map:
@@ -128,18 +130,21 @@ for ii = 1:length(tspan)
     sig3(:,ii+1) = 3*sqrt(diag(P));
 end
 
+%% Show Initial:
+scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
+scatter3(projectedPoints(1,:),projectedPoints(2,:),projectedPoints(3,:),'r','x')
+
 %% Show the Final Estimated Map:   
 estimated_map = reshape(X_hat(11:end,end),[],3)';
 
-figure()
-    scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
+figure('units','normalized','outerposition',[0 0 1 1])
+    scatter3(lmks(1,:),lmks(2,:),lmks(3,:),30,'b','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
              30,'r','x'); hold on; axis equal; grid on
     plot3(X(1,:),X(2,:),X(3,:),'b')
     plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
     plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
-    legend('truth map','estimated map','truth trajectory','estimated trajectory')
     
     scale = 300;
     R = scale*ea2rotmat123(bennu_theta, bennu_phi, bennu_psi(end));
@@ -152,26 +157,45 @@ figure()
     plot3([0 R(2,1)],[0 R(2,2)],[0 R(2,3)],'--g');
     plot3([0 R(3,1)],[0 R(3,2)],[0 R(3,3)],'--b');
     
-figure()
-subplot(3,1,1)
-    plot(X_hat(7,:)-bennu_theta); hold on
-    plot(-sig3(7,:),'--k')
-    plot(sig3(7,:),'--k')
-    ylabel('theta')
-subplot(3,1,2)
-    plot(X_hat(8,:)-bennu_phi); hold on
-    plot(-sig3(8,:),'--k')
-    plot(sig3(8,:),'--k')
-    ylabel('phi')
-% subplot(2,2,3)
-%     plot(X_hat(9,:)-bennu_psi); hold on
-%     plot(-sig3(9,:),'--k')
-%     plot(sig3(9,:),'--k')
-subplot(3,1,3)
-    plot(X_hat(10,:)-w_bennu); hold on
-    plot(-sig3(10,:),'--k')
-    plot(sig3(10,:),'--k')
-    ylim([-2*mean(sig3(10,:)) 2*mean(sig3(10,:))])
-    ylabel('\omega')
+    legend('truth map','estimated map','truth trajectory','estimated trajectory',...
+           '$B_x$','$B_y$','$B_z$','$\hat{B_x}$','$\hat{B_y}$','$\hat{B_z}$',...
+           'interpreter','latex')
+% Make animation:
+% v = VideoWriter('slam_results.mp4','MPEG-4');
+% v.Quality = 50;
+% open(v)
+% for ii = 1:360
+% %     estimated_map = reshape(X_hat(7:end,ii),[],3)';
+% %     set(true_sat,'XData',X(1,ii),'YData',X(2,ii),'ZData',X(3,ii));
+% %     set(est_sat,'XData',X_hat(1,ii),'YData',X_hat(2,ii),'ZData',X_hat(3,ii));
+% %     set(est_map,'XDAta',estimated_map(1,:),'YData',estimated_map(2,:),'ZData',estimated_map(3,:))
+%     view([ii 10])
+%     drawnow
+%     frame = getframe(gcf);
+%     writeVideo(v,frame);
+% end
+% close(v)
+    
+% figure()
+% subplot(3,1,1)
+%     plot(X_hat(7,:)-bennu_theta); hold on
+%     plot(-sig3(7,:),'--k')
+%     plot(sig3(7,:),'--k')
+%     ylabel('theta')
+% subplot(3,1,2)
+%     plot(X_hat(8,:)-bennu_phi); hold on
+%     plot(-sig3(8,:),'--k')
+%     plot(sig3(8,:),'--k')
+%     ylabel('phi')
+% % subplot(2,2,3)
+% %     plot(X_hat(9,:)-bennu_psi); hold on
+% %     plot(-sig3(9,:),'--k')
+% %     plot(sig3(9,:),'--k')
+% subplot(3,1,3)
+%     plot(X_hat(10,:)-w_bennu); hold on
+%     plot(-sig3(10,:),'--k')
+%     plot(sig3(10,:),'--k')
+%     ylim([-2*mean(sig3(10,:)) 2*mean(sig3(10,:))])
+%     ylabel('\omega')
 
 % Plot the post fit residuals:

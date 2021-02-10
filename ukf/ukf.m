@@ -65,16 +65,16 @@ function [X_hat, P] = ukf(dynamics, measModel, X_hat, dt,...
     if any(measAvails)
         measAvail = true;
         Rdiag = diag(R);
-        Rdiag = Rdiag(boolean(measAvails));
+        Rdiag = Rdiag(measAvails);
         R = diag(Rdiag);
-        meas = meas(boolean(measAvails));
+        meas = meas(measAvails);
         
     else
         measAvail = false;
     end
     
     % If measurement is available, perform kalman update:
-    measurement_args{end+1} = boolean(measAvails);
+    measurement_args{end+1} = measAvails;
     if measAvail
         % Calculate predicted measurement:
         [y_hat, Pyy, y_dev]  = ut(measModel, dt, SIGMAS, Wm, Wc, R, n, measurement_args{:});
