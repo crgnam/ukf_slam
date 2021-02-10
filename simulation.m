@@ -4,9 +4,9 @@ addpath(genpath('ukf'))
 rng(1)
 
 % Setup:
-N = 30; % Number of features to track
+N = 100; % Number of features to track
 dt = 60;
-tspan = dt:dt:86400;
+tspan = dt:dt:2*86400;
 
 f = .055; %(m) Camera focal length
 sx = 3; %sensor x in mm
@@ -32,7 +32,7 @@ G = 6.67430*10^-11; %(m3⋅kg–1⋅s–2) Gravitational Constant
 M = (7.329*10^10); %(kg) Mass of Bennu
 mu = G*M; % Standard gravitational constant of Bennu
 a = 700; %(meters) Orbital radius
-e = 0.1;
+e = 0.3;
 inc = 45;
 w = 0; RAAN = 0; M0 = 0;
 [r, v] = orbitalElements2PosVel(a,e,inc,w,RAAN,M0,mu);
@@ -104,29 +104,52 @@ for ii = 1:length(tspan)
 %     sig3(:,ii+1) = 3*sqrt(diag(P));
 end
 
-%% Show the Final Estimated Map:
+%% Show the Final Estimated Map:   
 estimated_map = reshape(X_hat(7:end,end),[],3)';
-subplot(1,2,1)
-    scatter3(x,y,z,30,colors,'filled'); hold on; axis equal; grid on
-    title('Truth Map')
-    
-subplot(1,2,2)
-    scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
-             30,colors,'filled'); hold on; axis equal; grid on
-    title('Estimated Map')
-    
+
 figure()
     scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
              30,'r','x'); hold on; axis equal; grid on
-    legend('truth map','estimated map')
-    
-    % Make animation:
+    plot3(X(1,:),X(2,:),X(3,:),'b')
+    plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
+    plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
+    plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
+    legend('truth map','estimated map','truth trajectory','estimated trajectory')
+
+% % Make animation:
+% v = VideoWriter('slam_results.mp4','MPEG-4');
+% v.Quality = 90;
+% open(v)
+% for ii = 1:360
+%     view([ii 20])
+%     drawnow
+%     frame = getframe(gcf);
+%     writeVideo(v,frame);
+% end
+% close(v)
+
+%% Show the history of the SLAM estimates:
+% estimated_map = reshape(X_hat(7:end,1),[],3)';
+% 
+% figure()
+% scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
+% est_map = scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
+%          30,'r','x'); hold on; axis equal; grid on
+% true_sat = plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20);
+% est_sat = plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20);
+% legend('truth map','estimated map','truth trajectory','estimated trajectory')
+%     
+%     % Make animation:
 %     v = VideoWriter('slam_results.mp4','MPEG-4');
 %     v.Quality = 90;
 %     open(v)
-%     for ii = 1:360
-%         view([ii 20])
+%     for ii = 1:size(X_hat,2)
+%         estimated_map = reshape(X_hat(7:end,ii),[],3)';
+%         set(true_sat,'XData',X(1,ii),'YData',X(2,ii),'ZData',X(3,ii));
+%         set(est_sat,'XData',X_hat(1,ii),'YData',X_hat(2,ii),'ZData',X_hat(3,ii));
+%         set(est_map,'XDAta',estimated_map(1,:),'YData',estimated_map(2,:),'ZData',estimated_map(3,:))
+%         view([ii*(360/size(X_hat,2)) 20])
 %         drawnow
 %         frame = getframe(gcf);
 %         writeVideo(v,frame);
