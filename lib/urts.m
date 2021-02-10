@@ -1,4 +1,4 @@
-function [M,P,D] = urts(M,P,a,Q,param,alpha,beta,kappa,mat,same_p)
+function [M,P,D] = urts(M,P,a,dt,Q,param,alpha,beta,kappa,mat,same_p)
 % urts_smooth1.m <- ORIGINAL
   if nargin < 5
     param = [];
@@ -52,7 +52,7 @@ function [M,P,D] = urts(M,P,a,Q,param,alpha,beta,kappa,mat,same_p)
         params = param{k};
     end
     [m_pred,P_pred,C] = ...
-	ut_transform(M(:,k),P(:,:,k),a,params,alpha,beta,kappa);
+	ut_transform(M(:,k),P(:,:,k),a,dt,params,alpha,beta,kappa);
     P_pred = P_pred + Q(:,:,k);
     D(:,:,k) = C / P_pred;
     M(:,k)   = M(:,k) + D(:,:,k) * (M(:,k+1) - m_pred);

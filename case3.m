@@ -1,4 +1,4 @@
-%% Case 1: Static Body, No Measurement Noise
+%% Case 3: Static Body, No Measurement Noise, SMOOTHER
 clear; matlabrc; clc; close all
 addpath(genpath('src'))
 addpath(genpath('lib'))
@@ -111,25 +111,30 @@ for ii = 1:length(tspan)
     P_hist(:,:,ii+1) = P;
 end
 
+%% Run the smoother:
+[M,P_hist,D] = urts(X_hat,P_hist,@ukfOrbit,dt,Q,dynamics_args,alpha,beta,kappa,0,1);
 
 %% Show the Final Estimated Map:   
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
-% Use Kabsch algorithm to transform to truth space:
+% Use Horn's Method to transform to truth space:
 [regParams,Bfit,ErrorStats] = absor([x;y;z],estimated_map,'doScale',true,'doTrans',true);
 R2 = regParams.R;
 t2 = regParams.t;
 S2 = regParams.s;
+
+% Transform map and states:
 estimated_map = (1/S2)*R2'*(estimated_map - t2);
+M(1:3,:) = (1/S2)*R2'*(M(1:3,:) - t2);
 
 figure()
     scatter3(x,y,z,20,'b','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
              40,'r','x'); hold on; axis equal; grid on
-%     plot3(X(1,:),X(2,:),X(3,:),'b')
-%     plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
-%     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
-%     plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'or','MarkerSize',20)
+    plot3(X(1,:),X(2,:),X(3,:),'b')
+    plot3(M(1,:),M(2,:),M(3,:),'r')
+    plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
+    plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'or','MarkerSize',20)
     legend('truth map','estimated map','truth trajectory','estimated trajectory')
 
 % Make animation:
