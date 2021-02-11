@@ -51,17 +51,17 @@ classdef Bennu < handle
             self.ax = gca;
             self.l = light(self.ax);
             hold on; axis equal
-            set(gca,'Color','k')
+%             set(gca,'Color','k')
         end
         
-        function [] = drawBodyStandalone(self,axs)
-            patch(axs,'Faces',self.f.v,'Vertices',self.v,...
+        function [p] = drawBodyStandalone(self,axs)
+            p = patch(axs,'Faces',self.f.v,'Vertices',self.v,...
                            'FaceColor',[0.5 0.5 0.5],'EdgeColor','None',...
                            'FaceLighting','gouraud','AmbientStrength',0.5,...
                            'SpecularStrength',0);
             self.l = light(axs);
-            hold on; axis equal
-            set(axs,'Color','k')
+%             hold on; axis equal
+%             set(axs,'Color','k')
         end
         
         function [] = drawLmks(self,visible,varargin)

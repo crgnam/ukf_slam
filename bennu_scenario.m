@@ -12,6 +12,7 @@ N = 50; % number of features to be simulated and tracked
 dt = 60;
 tspan = dt:dt:1*86400;
 
+
 % Setup camera (pinhole model):
 f = .055; %(m) Camera focal length
 res_x = 1920; %(pix)
@@ -34,7 +35,8 @@ bennu = Bennu(N);
 
 % Calculate orbital state vector:
 [r,v] = orbitalElements2PosVel(semi_major,eccentricity,inclination,0,0,0,bennu.mu);
-apoapsis = semi_major*(1+eccentricity); 
+apoapsis = 2*semi_major*(1+eccentricity); 
+tspan = dt:dt:2*pi*sqrt(semi_major^3/bennu.mu);
 
 % Preallocate memory:
 X = zeros(6,length(tspan));
@@ -80,7 +82,7 @@ dynamics_args = {bennu.mu};
 
 % 3-sigma bound init:
 sig3 = zeros(size(P,1),length(tspan));
-sig3_post = sig3;
+sig3_rts = sig3;
 sig3(:,1) = 3*sqrt(diag(P));
 avails_history = zeros(2*N,length(tspan));
 meas_history   = zeros(2*N,length(tspan));
@@ -90,6 +92,7 @@ rotMat_hist(:,:,1) = rotMat;
 % Smoother initialization:
 P_hist = zeros(size(P,1),size(P,2),length(tspan));
 P_hist(:,:,1) = P;
+disp('Completed Initialization')
 
 %% Run Simulation:
 visualize  = false;
@@ -97,7 +100,10 @@ save_video = false;
 if visualize
     figure('units','normalized','outerposition',[0 0 1 1])
     bennu.drawBody()
+    camva(2)
     cam = Attitude(150,'LineWidth',2);
+    traj = plot3(r(1),r(2),r(3),'r');
+    grid on
     view([45 20])
     xlim([-apoapsis apoapsis])
     ylim([-apoapsis apoapsis])
@@ -125,7 +131,9 @@ for ii = 1:length(tspan)
     % Visualize:
     if visualize 
         bennu.drawLmks(visible,'MarkerSize',10)
+        view([20+ii*360/length(tspan),20])
         cam.draw(r,rotMat)
+        set(traj,'XData',X(1,1:ii),'YData',X(2,1:ii),'ZData',X(3,1:ii))
         drawnow
     end
     
@@ -154,18 +162,20 @@ end
 if save_video
     close(vid)
 end
+disp('Completed Forward Simulation')
 
 %% Show Forward Results:  
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
 % Use Kabsch algorithm to transform to truth space:
 [regParams,~,~] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
-R2 = regParams.R;
-t2 = regParams.t;
-S2 = regParams.s;
-estimated_map = (1/S2)*R2'*(estimated_map - t2);
-M_ukf = (1/S2)*R2'*(X_hat(1:3,:) - t2);
+R_ukf = regParams.R;
+t_ukf = regParams.t;
+S_ukf = regParams.s;
+estimated_map = (1/S_ukf)*R_ukf'*(estimated_map - t_ukf);
+M_ukf = (1/S_ukf)*R_ukf'*(X_hat(1:3,:) - t_ukf);
 
+save_video = true;
 if save_video
     vid = VideoWriter('ukf_results.mp4','MPEG-4');
     vid.Quality = 90;
@@ -173,16 +183,22 @@ if save_video
 end
 figure('units','normalized','outerposition',[0 0 1 1])
     scatter3(bennu.lmks(1,:),bennu.lmks(2,:),bennu.lmks(3,:),...
-             20,'b','filled'); hold on; axis equal; grid on
+             20,'g','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
-             40,'r','x'); hold on; axis equal; grid on
+             100,'m','o','LineWidth',2); hold on; axis equal; grid on
     plot3(X(1,:),X(2,:),X(3,:),'b')
     plot3(M_ukf(1,:),M_ukf(2,:),M_ukf(3,:),'r')
     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
     plot3(M_ukf(1,1),M_ukf(2,1),M_ukf(3,1),'.r','MarkerSize',20)
+    p = bennu.drawBodyStandalone(gca); p.FaceAlpha=0.8;
     legend('True Map','Estimated Map','True Trajectory','Estimated Trajectory',...
-           'location','south')
+           'True Start','Estimated Start','Bennu','location','southeast')
+    camva(2)
+    xlim([-apoapsis apoapsis])
+    ylim([-apoapsis apoapsis])
+    zlim([-apoapsis apoapsis])
     title('Forward UKF Results')
+    set(findall(gcf,'-property','FontSize'),'FontSize',20)
 if save_video
     for ii = 1:360
         view([ii 20])
@@ -191,27 +207,29 @@ if save_video
     end
     close(vid)
 end
-    
+disp('FUCK')    
+
 %% Run the smoother:
 [M,P_hist,D] = urts(X_hat,P_hist,@ukfOrbit,dt,Q,dynamics_args,alpha,beta,kappa,0,1);
 
 % Get the 3-sigma bounds:
-% for ii = 1:size(P_hist,3)
-%     sig3_post(:,ii) = 3*sqrt(diag(P_hist(:,:,ii)));
-% end
+for ii = 1:size(P_hist,3)
+    sig3_rts(:,ii) = 3*sqrt(diag(P_hist(:,:,ii)));
+end
+disp('Completed Smoother')
     
 %% Show Smoother Results:
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
 % Use Horn's Method to transform to truth space:
 [regParams,Bfit,ErrorStats] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
-R2 = regParams.R;
-t2 = regParams.t;
-S2 = regParams.s;
+R_rts = regParams.R;
+t_rts = regParams.t;
+S_rts = regParams.s;
 
 % Transform map and states:
-estimated_map = (1/S2)*R2'*(estimated_map - t2);
-M_rts(1:3,:) = (1/S2)*R2'*(M(1:3,:) - t2);
+estimated_map = (1/S_rts)*R_rts'*(estimated_map - t_rts);
+M_rts(1:3,:) = (1/S_rts)*R_rts'*(M(1:3,:) - t_rts);
 
 if save_video
     vid = VideoWriter('urts_results.mp4','MPEG-4');
@@ -220,16 +238,22 @@ if save_video
 end
 figure('units','normalized','outerposition',[0 0 1 1])
     scatter3(bennu.lmks(1,:),bennu.lmks(2,:),bennu.lmks(3,:),...
-             20,'b','filled'); hold on; axis equal; grid on
+             20,'g','filled'); hold on; axis equal; grid on
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
-             40,'r','x'); hold on; axis equal; grid on
+             100,'m','o','LineWidth',2); hold on; axis equal; grid on
     plot3(X(1,:),X(2,:),X(3,:),'b')
     plot3(M_rts(1,:),M_rts(2,:),M_rts(3,:),'r')
     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
     plot3(M_rts(1,1),M_rts(2,1),M_rts(3,1),'.r','MarkerSize',20)
+    p = bennu.drawBodyStandalone(gca); p.FaceAlpha=0.8;
     legend('True Map','Estimated Map','True Trajectory','Estimated Trajectory',...
-           'location','south')
+           'True Start','Estimated Start','Bennu','location','southeast')
+    camva(2)
+    xlim([-apoapsis apoapsis])
+    ylim([-apoapsis apoapsis])
+    zlim([-apoapsis apoapsis])
     title('Unscented RTS Smoother Results')
+    set(findall(gcf,'-property','FontSize'),'FontSize',20)
     if save_video
         for ii = 1:360
             view([ii 20])
@@ -240,8 +264,12 @@ figure('units','normalized','outerposition',[0 0 1 1])
     end
         
 %% Calculate Residuals:
-pt_resid = zeros(size(meas_history));
-pf_resid = zeros(size(meas_history));
+pt_resid = nan(size(meas_history));
+pf_resid = nan(size(meas_history));
+std_pt_row = zeros(1,size(pf_resid,2));
+std_pt_line = std_pt_row;
+std_pf_row = std_pt_row;
+std_pf_line = std_pt_row;
 for ii = 1:size(X_hat,2)
     % Get the measurement availability:
     avails = avails_history(:,ii)==1;
@@ -251,25 +279,175 @@ for ii = 1:size(X_hat,2)
     pf_predict = ukfCamera(dt, M(:,ii),    rotMat_hist(:,:,ii),K, avails);
     
     % Calculate the measurement residuals:
-    pt_resid(1:sum(avails),ii) = pt_predict - meas_history(1:sum(avails),ii);
-    pf_resid(1:sum(avails),ii) = pf_predict - meas_history(1:sum(avails),ii);
+    nn = sum(avails);
+    if nn ~= 0
+        pt_resid(1:nn/2,ii) = pt_predict(1:nn/2) - meas_history(1:nn/2,ii);
+        pf_resid(1:nn/2,ii) = pf_predict(1:nn/2) - meas_history(1:nn/2,ii);
+        pt_resid(N+1:N+nn/2,ii) = pt_predict(nn/2+1:end) - meas_history(nn/2+1:nn,ii);
+        pf_resid(N+1:N+nn/2,ii) = pf_predict(nn/2+1:end) - meas_history(nn/2+1:nn,ii);
+
+        % Calculate statistics:
+        std_pt_row(ii)  = std(pt_resid(1:nn/2,ii));
+        std_pt_line(ii) = std(pt_resid(N+1:N+nn/2,ii));
+        std_pf_row(ii)  = std(pf_resid(1:nn/2,ii));
+        std_pf_line(ii) = std(pf_resid(N+1:N+nn/2,ii));
+    end
 end
 
 % Plot the residuals:
-pt_pixel = pt_resid(1:N,:);
-pt_row   = pt_resid(N+1:end,:);
-pf_pixel = pf_resid(1:N,:);
-pf_row   = pf_resid(N+1:end,:);
+pt_line = pt_resid(1:N,:);
+pt_row  = pt_resid(N+1:end,:);
+pf_line = pf_resid(1:N,:);
+pf_row  = pf_resid(N+1:end,:);
 
-figure()
-    subplot(1,2,1)
-        plot(pt_pixel*res_x,'.b'); hold on
-        plot(pt_row*res_y,'.r');
-        ylim([-5 5])
+%% Plot Residuals:
+MS = 1;
+YLIM  = 2;
+YLIM2 = 1;
+NN = 5;
+figure('units','normalized','outerposition',[0 0 1 1])
+    t_plt = repmat((0:dt:tspan(end))/60,N,1);
+    subplot(2,2,1)
+        plot(t_plt,pt_line*res_x,'.b','MarkerSize',MS); hold on
+        drawBounds(t_plt,std_pt_line*res_x,NN)
+        ylim([-YLIM YLIM])
+        xlim([0 inf])
+        title('Forward UKF')
+        ylabel('Line Error (pixels)')
+        grid on
+    subplot(2,2,2)
+        plot(t_plt,pf_line*res_x,'.m','MarkerSize',MS); hold on
+        drawBounds(t_plt,std_pf_line*res_x,NN)
+        ylim([-YLIM YLIM])
+        xlim([0 inf])
+        title('RTS Smoother')
         grid on
 
-    subplot(1,2,2)
-        plot(pf_pixel*res_x,'.b'); hold on
-        plot(pf_row*res_y,'.r');
-        ylim([-5 5])
+    subplot(2,2,3)
+        plot(t_plt,pt_row*res_y,'.b','MarkerSize',MS); hold on
+        drawBounds(t_plt,std_pt_row*res_y,NN)
+        ylim([-YLIM2 YLIM2])
+        xlim([0 inf])
+        ylabel('Row Error (pixels)')
+        xlabel('Time (min)')
         grid on
+    subplot(2,2,4)
+        plot(t_plt,pf_row*res_y,'.m','MarkerSize',MS); hold on
+        drawBounds(t_plt,std_pf_row*res_y,NN)
+        xlabel('Time (min)')
+        ylim([-YLIM2 YLIM2])
+        xlim([0 inf])
+        grid on
+set(findall(gcf,'-property','FontSize'),'FontSize',20)
+
+%% Calculate Trajectory Residuals:
+% Get missing parts:
+Mv_ukf = (1/S_ukf)*R_ukf'*(X_hat(4:6,:) - t_ukf);
+r_ukf_resid = M_ukf - X(1:3,:);
+v_ukf_resid = Mv_ukf - X(4:6,:);
+r_sig_ukf = (1/3)*(1/S_ukf)*sig3(1:3,:);
+v_sig_ukf = (1/3)*(1/S_ukf)*sig3(4:6,:);
+
+Mv_rts = (1/S_rts)*R_rts'*(M(4:6,:) - t_rts);
+r_rts_resid = M_rts  - X(1:3,:);
+v_rts_resid = Mv_rts - X(4:6,:);
+r_sig_rts = (1/3)*(1/S_rts)*sig3_rts(1:3,:);
+v_sig_rts = (1/3)*(1/S_rts)*sig3_rts(4:6,:);
+
+%% Plot Trajectory Residuals:
+figure('units','normalized','outerposition',[0 0 1 1])
+LW = 2;
+NN = 5;
+subplot(3,2,1)
+    plot(t_plt,r_ukf_resid(1,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_ukf(1,:),NN)
+    grid on
+    ylabel('r_x Error (m)')
+    title('Forward UKF')
+    xlim([0 inf])
+    
+subplot(3,2,2)
+    plot(t_plt,r_rts_resid(1,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_rts(1,:),NN)
+    grid on
+    title('RTS Smoother')
+    xlim([0 inf])
+    
+subplot(3,2,3)
+    plot(t_plt,r_ukf_resid(2,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_ukf(2,:),NN)
+    grid on
+    ylabel('r_y Error (m)')
+    xlim([0 inf])
+    
+subplot(3,2,4)
+    plot(t_plt,r_rts_resid(2,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_rts(2,:),NN)
+    grid on
+    xlim([0 inf])
+    
+subplot(3,2,5)
+    plot(t_plt,r_ukf_resid(3,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_ukf(3,:),NN)
+    grid on
+    ylabel('r_z Error (m)')
+    xlabel('Time (min)')
+    xlim([0 inf])
+    
+subplot(3,2,6)
+    plot(t_plt,r_rts_resid(3,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,r_sig_rts(3,:),NN)
+    grid on
+    xlabel('Time (min)')
+    xlim([0 inf])
+    
+set(findall(gcf,'-property','FontSize'),'FontSize',20)
+
+%% Plot Velocity Residuals:
+figure('units','normalized','outerposition',[0 0 1 1])
+LW = 2;
+NN = 5;
+subplot(3,2,1)
+    plot(t_plt,v_ukf_resid(1,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_ukf(1,:),NN)
+    grid on
+    ylabel('v_x Error (m/s)')
+    title('Forward UKF')
+    xlim([0 inf])
+    
+subplot(3,2,2)
+    plot(t_plt,v_rts_resid(1,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_rts(1,:),NN)
+    grid on
+    title('RTS Smoother')
+    xlim([0 inf])
+    
+subplot(3,2,3)
+    plot(t_plt,v_ukf_resid(2,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_ukf(2,:),NN)
+    grid on
+    ylabel('v_y Error (m/s)')
+    xlim([0 inf])
+    
+subplot(3,2,4)
+    plot(t_plt,v_rts_resid(2,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_rts(2,:),NN)
+    grid on
+    xlim([0 inf])
+    
+subplot(3,2,5)
+    plot(t_plt,v_ukf_resid(3,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_ukf(3,:),NN)
+    grid on
+    ylabel('v_z Error (m/s)')
+    xlabel('Time (min)')
+    xlim([0 inf])
+    
+subplot(3,2,6)
+    plot(t_plt,v_rts_resid(3,:),'b','LineWidth',LW); hold on
+    drawBounds(t_plt,v_sig_rts(3,:),NN)
+    grid on
+    xlabel('Time (min)')
+    xlim([0 inf])
+    
+set(findall(gcf,'-property','FontSize'),'FontSize',20)
