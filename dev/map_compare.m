@@ -186,7 +186,7 @@ figure('units','normalized','outerposition',[0 0 1 1])
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
              100,'m','o','LineWidth',2); hold on; axis equal; grid on
     legend('True Map','Estimated Map','location','southeast')
-    camva(2)
+    camva(1)
     xlim([-apoapsis apoapsis])
     ylim([-apoapsis apoapsis])
     zlim([-apoapsis apoapsis])
@@ -219,7 +219,7 @@ figure('units','normalized','outerposition',[0 0 1 1])
     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
              100,'m','o','LineWidth',2); hold on; axis equal; grid on
     legend('True Map','Estimated Map','location','southeast')
-    camva(2)
+    camva(1)
     xlim([-apoapsis apoapsis])
     ylim([-apoapsis apoapsis])
     zlim([-apoapsis apoapsis])

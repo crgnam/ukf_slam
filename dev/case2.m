@@ -10,7 +10,7 @@ rng(1)
 % Setup:
 N = 50; % Number of features to track
 dt = 60;
-tspan = dt:dt:4*86400;
+tspan = dt:dt:1*86400;
 w_bennu = 2*pi/(4.3*60*60); %(rad/s) Angular rate of Bennu
 bennu_theta = 2.32;
 bennu_phi = 3.12;
@@ -69,7 +69,7 @@ R = diag((pix_sig^2)*ones(1,2*N));
 
 % Initial estimate of the map:
 rotMat = nadir(r,v);
-imagePoints = camera(rotMat,r,K,fov, [x;y;z]);
+imagePoints = camera(rotMat,r,K,fov, [x;y;z],nan,pix_sig);
 rays = generateRays(imagePoints,rotMat,K);
 projectedPoints = r + norm(r)*rays;
 
@@ -109,12 +109,12 @@ for ii = 1:length(tspan)
     rotMat = nadir(r,v);
     
     % Rotate the landmarks on Bennu's surface:
-    bennu_psi(ii+1) = w_bennu*ii*dt;
+    bennu_psi(ii+1) = rad2deg(w_bennu)*ii*dt;
     bennu_rotMat = ea2rotmat123(bennu_theta,bennu_phi,bennu_psi(ii+1));
     lmks = bennu_rotMat*[x;y;z];
     
     % Calculate the measurement:
-    imagePoints = camera(rotMat,r,K,fov, lmks); %(CURRENTLY NO NOISE)
+    imagePoints = camera(rotMat,r,K,fov, lmks, nan,pix_sig); %(CURRENTLY NO NOISE)
     measurement = [imagePoints(1,:)'; imagePoints(2,:)'];
     
     % Formulate UKF inputs:
@@ -131,35 +131,35 @@ for ii = 1:length(tspan)
 end
 
 %% Show Initial:
-scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
-scatter3(projectedPoints(1,:),projectedPoints(2,:),projectedPoints(3,:),'r','x')
+% scatter3(x,y,z,30,'b','filled'); hold on; axis equal; grid on
+% scatter3(projectedPoints(1,:),projectedPoints(2,:),projectedPoints(3,:),'r','x')
 
 %% Show the Final Estimated Map:   
-estimated_map = reshape(X_hat(11:end,end),[],3)';
-
-figure('units','normalized','outerposition',[0 0 1 1])
-    scatter3(lmks(1,:),lmks(2,:),lmks(3,:),30,'b','filled'); hold on; axis equal; grid on
-    scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
-             30,'r','x'); hold on; axis equal; grid on
-    plot3(X(1,:),X(2,:),X(3,:),'b')
-    plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
-    plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
-    plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
-    
-    scale = 300;
-    R = scale*ea2rotmat123(bennu_theta, bennu_phi, bennu_psi(end));
-    plot3([0 R(1,1)],[0 R(1,2)],[0 R(1,3)],'r');
-    plot3([0 R(2,1)],[0 R(2,2)],[0 R(2,3)],'g');
-    plot3([0 R(3,1)],[0 R(3,2)],[0 R(3,3)],'b');
-    
-    R = scale*ea2rotmat123(X_hat(7,end), X_hat(8,end), X_hat(9,end));
-    plot3([0 R(1,1)],[0 R(1,2)],[0 R(1,3)],'--r');
-    plot3([0 R(2,1)],[0 R(2,2)],[0 R(2,3)],'--g');
-    plot3([0 R(3,1)],[0 R(3,2)],[0 R(3,3)],'--b');
-    
-    legend('truth map','estimated map','truth trajectory','estimated trajectory',...
-           '$B_x$','$B_y$','$B_z$','$\hat{B_x}$','$\hat{B_y}$','$\hat{B_z}$',...
-           'interpreter','latex')
+% estimated_map = reshape(X_hat(11:end,end),[],3)';
+% 
+% figure('units','normalized','outerposition',[0 0 1 1])
+%     scatter3(lmks(1,:),lmks(2,:),lmks(3,:),30,'b','filled'); hold on; axis equal; grid on
+%     scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...
+%              30,'r','x'); hold on; axis equal; grid on
+%     plot3(X(1,:),X(2,:),X(3,:),'b')
+%     plot3(X_hat(1,:),X_hat(2,:),X_hat(3,:),'r')
+%     plot3(X(1,1),X(2,1),X(3,1),'.b','MarkerSize',20)
+%     plot3(X_hat(1,1),X_hat(2,1),X_hat(3,1),'.r','MarkerSize',20)
+%     
+%     scale = 300;
+%     R = scale*ea2rotmat123(bennu_theta, bennu_phi, bennu_psi(end));
+%     plot3([0 R(1,1)],[0 R(1,2)],[0 R(1,3)],'r');
+%     plot3([0 R(2,1)],[0 R(2,2)],[0 R(2,3)],'g');
+%     plot3([0 R(3,1)],[0 R(3,2)],[0 R(3,3)],'b');
+%     
+%     R = scale*ea2rotmat123(X_hat(7,end), X_hat(8,end), X_hat(9,end));
+%     plot3([0 R(1,1)],[0 R(1,2)],[0 R(1,3)],'--r');
+%     plot3([0 R(2,1)],[0 R(2,2)],[0 R(2,3)],'--g');
+%     plot3([0 R(3,1)],[0 R(3,2)],[0 R(3,3)],'--b');
+%     
+%     legend('truth map','estimated map','truth trajectory','estimated trajectory',...
+%            '$B_x$','$B_y$','$B_z$','$\hat{B_x}$','$\hat{B_y}$','$\hat{B_z}$',...
+%            'interpreter','latex')
 % Make animation:
 % v = VideoWriter('slam_results.mp4','MPEG-4');
 % v.Quality = 50;
@@ -176,26 +176,26 @@ figure('units','normalized','outerposition',[0 0 1 1])
 % end
 % close(v)
     
-% figure()
-% subplot(3,1,1)
-%     plot(X_hat(7,:)-bennu_theta); hold on
-%     plot(-sig3(7,:),'--k')
-%     plot(sig3(7,:),'--k')
-%     ylabel('theta')
-% subplot(3,1,2)
-%     plot(X_hat(8,:)-bennu_phi); hold on
-%     plot(-sig3(8,:),'--k')
-%     plot(sig3(8,:),'--k')
-%     ylabel('phi')
-% % subplot(2,2,3)
-% %     plot(X_hat(9,:)-bennu_psi); hold on
-% %     plot(-sig3(9,:),'--k')
-% %     plot(sig3(9,:),'--k')
-% subplot(3,1,3)
-%     plot(X_hat(10,:)-w_bennu); hold on
-%     plot(-sig3(10,:),'--k')
-%     plot(sig3(10,:),'--k')
-%     ylim([-2*mean(sig3(10,:)) 2*mean(sig3(10,:))])
-%     ylabel('\omega')
-
-% Plot the post fit residuals:
+%% Plot Spin Rate Stuff:
+figure()
+NN = 5;
+LW = 2;
+addpath(genpath('plotting'))
+t_plt = (0:dt:tspan(end))/60;
+subplot(3,1,1)
+    plot(t_plt,X_hat(7,:)-bennu_theta,'LineWidth',LW); hold on
+    drawBounds(t_plt,sig3(7,:),NN)
+    ylim([-3 3])
+    ylabel('theta (deg)')
+subplot(3,1,2)
+    plot(X_hat(8,:)-bennu_phi,'LineWidth',LW); hold on
+    drawBounds(t_plt,sig3(8,:),NN)
+    ylim([-4 4])
+    ylabel('phi (deg)')
+subplot(3,1,3)
+    plot(X_hat(10,:)-w_bennu,'LineWidth',LW); hold on
+    drawBounds(t_plt,sig3(10,:),NN)
+    ylim([-2*mean(sig3(10,:)) 2*mean(sig3(10,:))])
+    ylabel('\omega (rad/s)')
+    
+set(findall(gcf,'-property','FontSize'),'FontSize',20)
