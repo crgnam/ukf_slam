@@ -94,6 +94,30 @@ P_hist = zeros(size(P,1),size(P,2),length(tspan));
 P_hist(:,:,1) = P;
 disp('Completed Initialization')
 
+%% Show the initial projection:
+figure('units','normalized','outerposition',[0 0 1 1])
+h1 = plot3(bennu.lmks(1,:),bennu.lmks(2,:),bennu.lmks(3,:),'.b','MarkerSize',20); hold on
+h2 = plot3(projectedPoints(1,:),projectedPoints(2,:),projectedPoints(3,:),'xr','MarkerSize',10,'LineWidth',2);
+cam = Attitude(150,'LineWidth',2);
+cam.draw(r,rotMat)
+camva(1.5)
+legend([h1,h2],'True Map Points','Map Initial Projection','location','southeast')
+set(findall(gcf,'-property','FontSize'),'FontSize',20)
+axis equal
+grid on
+xlim([-apoapsis apoapsis])
+ylim([-apoapsis apoapsis])
+zlim([-apoapsis apoapsis])
+vid = VideoWriter('projection.mp4','MPEG-4');
+vid.Quality = 90;
+open(vid)
+for ii = 1:360
+    view([ii 20])
+    frame = getframe(gcf);
+    writeVideo(vid,frame);
+end
+close(vid)
+
 %% Run Simulation:
 visualize  = false;
 save_video = false;
@@ -168,7 +192,7 @@ disp('Completed Forward Simulation')
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
 % Use Kabsch algorithm to transform to truth space:
-[regParams,~,~] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
+[regParams,~, errorStats_ukf] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
 R_ukf = regParams.R;
 t_ukf = regParams.t;
 S_ukf = regParams.s;
@@ -222,7 +246,7 @@ disp('Completed Smoother')
 estimated_map = reshape(X_hat(7:end,end),[],3)';
 
 % Use Horn's Method to transform to truth space:
-[regParams,Bfit,ErrorStats] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
+[regParams,Bfit,errorStats_rts] = absor(bennu.lmks,estimated_map,'doScale',true,'doTrans',true);
 R_rts = regParams.R;
 t_rts = regParams.t;
 S_rts = regParams.s;
