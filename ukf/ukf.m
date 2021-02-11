@@ -66,9 +66,7 @@ function [X_hat, P] = ukf(dynamics, measModel, X_hat, dt,...
         measAvail = true;
         Rdiag = diag(R);
         Rdiag = Rdiag(measAvails);
-        R = diag(Rdiag);
-        meas = meas(measAvails);
-        
+        R = diag(Rdiag);       
     else
         measAvail = false;
     end

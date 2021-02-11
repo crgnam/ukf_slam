@@ -68,6 +68,8 @@ X_hat(:,1) = [r; v;
               projectedPoints(1,:)';
               projectedPoints(2,:)';
               projectedPoints(3,:)'];
+sig3 = zeros(size(X_hat));
+sig3(:,1) = 3*sqrt(diag(P));
           
 % Initialize UKF model arguments:
 dynamics_args = {mu};
@@ -80,6 +82,7 @@ kappa = 2;
 % Smoother initialization:
 P_hist = zeros(size(P,1),size(P,2),length(tspan));
 P_hist(:,:,1) = P;
+sig3_post = zeros(size(sig3));
 
 %% Run Filter:
 % For the purposes here of this test, it is assumed that ALL features are
@@ -109,10 +112,21 @@ for ii = 1:length(tspan)
                              alpha, beta, kappa, ukf_args{:});
     sig3(:,ii+1) = 3*sqrt(diag(P));
     P_hist(:,:,ii+1) = P;
+    
+    % Calculate measurement residuals:
+    
 end
 
 %% Run the smoother:
 [M,P_hist,D] = urts(X_hat,P_hist,@ukfOrbit,dt,Q,dynamics_args,alpha,beta,kappa,0,1);
+
+% Get the 3-sigma bounds:
+for ii = 1:size(P_hist,3)
+    sig3_post(:,ii) = 3*sqrt(diag(P(:,:,ii)));
+end
+
+% Calculate post-fit measurement residuals:
+
 
 %% Show the Final Estimated Map:   
 estimated_map = reshape(X_hat(7:end,end),[],3)';
