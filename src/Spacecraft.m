@@ -30,6 +30,10 @@ classdef Spacecraft < handle
             X = rk4(@gravFieldDynamics,dt,[self.r; self.v],body);
             self.r = X(1:3);
             self.v = X(4:6);
+            
+            % Re-point nadir (or replace with rotational
+            % dynamics/controller if needed in the future):
+            self.rotmat = nadir(self.r,self.v);
         end
         
         % Take a measurement given a body with a set of lmks:
@@ -40,7 +44,6 @@ classdef Spacecraft < handle
             % Detect points that are pointed towards the camera:
             cameraNorms = self.rotmat*body.lmk_norms_i;
             visible = cameraNorms(3,:)>0;
-%             visible = true;
             
             % Detect points that are illuminated:
             if norm(body.sun_vec) == 0
@@ -57,7 +60,11 @@ classdef Spacecraft < handle
             % Add noise to the measurement image points:
             imagePoints = imagePoints + sig_meas*randn(size(imagePoints));
         end
-        
+    end
+    
+    %% Public Methods for Visualizations
+    methods (Access = public)
+        % Draw the spacecraft's current attitude:
         function [] = draw(self,varargin)
             if isnumeric(varargin{1})
                 scale = varargin{1};

@@ -10,6 +10,8 @@ classdef Asteroid < handle
         lmks_b % landmark body locations
         lmk_norms_i % landmark normals inertial
         lmk_norms_b % landmark normals body
+        lmks_obs % boolean aray for if landmark has ever been observed
+        lmks_lbl % label for landmarks sequentially, in order of observation
         
         % Environment:
         inert2body
@@ -88,10 +90,24 @@ classdef Asteroid < handle
             self.verts_i = self.inert2body'*self.verts_b';
         end
         
-        function [rotmat] = rotate(self,dt)
-            rotmat = aa2rotmat(self.rotation_axis, self.rotation_rate*dt);
+        % Get rotation matrix for single time step:
+        function [rotmat] = rotate(self,dt,rot_ax,rot_rate)
+            if nargin == 2
+                rotmat = aa2rotmat(self.rotation_axis, self.rotation_rate*dt);
+            else
+                rotmat = aa2rotmat(rot_ax, rot_rate*dt);
+            end
         end
         
+        % Add a label for a newly detected landmark:
+        function [self] = addLabel(self)
+            
+        end
+    end
+    
+    %% Public Methods for Visualizations
+    methods (Access = public)
+        % Draw the asteroid body (useful for animations):
         function [] = drawBody(self)
             if ~self.plotted_body
                 self.ptch = patch('Faces',self.faces.v,'Vertices',self.verts_i',...
@@ -105,10 +121,9 @@ classdef Asteroid < handle
             else
                 set(self.ptch,'Vertices',self.verts_i')
             end
-%             set(gca,'Color','k')
         end
         
-        % Draw the body in a standalone fashion:
+        % Draw the body in a standalone fashion (useful for a single plot):
         function [p,l] = drawBodyStandalone(self,axs)
             p = patch(axs,'Faces',self.faces.v,'Vertices',self.verts,...
                            'FaceColor',[0.5 0.5 0.5],'EdgeColor','None',...
@@ -146,7 +161,7 @@ classdef Asteroid < handle
             end
         end
         
-        % Function to draw estimated landmarks:
+        % Function to draw estimated (passed in) landmarks:
         function [] = drawLmks_hat(self,X_hat,varargin)
             lmks_h = reshape(X_hat,[],3)';
             if ~self.plotted_lmks_hat

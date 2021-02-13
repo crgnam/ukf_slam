@@ -18,7 +18,7 @@ classdef Camera < handle
     
     %% Public Methods:
     methods (Access = public)
-        % Function to project world points into the image space:
+        % Project world points into the image space:
         function [imagePoints,inFOV] = worldToImage(self,worldPoints,rotMat,position,K2,fov2)
             % worldPoints = 3xN world points
             % rotMat   = 3x3 rotation matrix
@@ -55,11 +55,11 @@ classdef Camera < handle
             inFOV = ~remove;
         end
         
-        % Function to generate rays which can be traced out from the camera
-        function [rays] = generateRays(imagePoints,rotMat,K)
+        % Generate rays which can be traced out from the camera
+        function [rays] = generateRays(imagePoints,rotMat)
             % Function generates rays (as unit vectors of shape 3xN) given a
             % set of image points (2xN) and a camera projection matrix K
-            raysCamFrame = [imagePoints; -K(1,1)*ones(1,size(imagePoints,2))];
+            raysCamFrame = [imagePoints; -self.K(1,1)*ones(1,size(imagePoints,2))];
             rays = normc(rotMat'*raysCamFrame);
         end
     end
