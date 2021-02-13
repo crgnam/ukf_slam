@@ -32,6 +32,10 @@ classdef Asteroid < handle
         plotted_lmks = false;
         lmk_vis
         lmk_inv
+        
+        % Estimated (for plotting):
+        lmks_hat
+        plotted_lmks_hat = false;
     end
     
     %% Constructor
@@ -77,11 +81,15 @@ classdef Asteroid < handle
     methods (Access = public)
         % Update parameters about the asteroid:
         function [self] = update(self,dt)
-            rotmat = aa2rotmat(self.rotation_axis, self.rotation_rate*dt);
+            rotmat = self.rotate(dt);
             self.inert2body = self.inert2body*rotmat;
             self.lmks_i       = self.inert2body'*self.lmks_b;
             self.lmk_norms_i = self.inert2body'*self.lmk_norms_b;
             self.verts_i = self.inert2body'*self.verts_b';
+        end
+        
+        function [rotmat] = rotate(self,dt)
+            rotmat = aa2rotmat(self.rotation_axis, self.rotation_rate*dt);
         end
         
         function [] = drawBody(self)
@@ -122,7 +130,7 @@ classdef Asteroid < handle
             if ~self.plotted_lmks
                 self.lmk_vis = plot3(self.lmks_i(1,inds),...
                                      self.lmks_i(2,inds),...
-                                     self.lmks_i(3,inds),'.g',varargin{:});
+                                     self.lmks_i(3,inds),'.g',varargin{:}); hold on
                 self.lmk_inv = plot3(self.lmks_i(1,~inds),...
                                      self.lmks_i(2,~inds),...
                                      self.lmks_i(3,~inds),'.r',varargin{:});
@@ -135,6 +143,22 @@ classdef Asteroid < handle
                 set(self.lmk_inv,'XData',self.lmks_i(1,~inds),...
                                  'YData',self.lmks_i(2,~inds),...
                                  'ZData',self.lmks_i(3,~inds));
+            end
+        end
+        
+        % Function to draw estimated landmarks:
+        function [] = drawLmks_hat(self,X_hat,varargin)
+            lmks_h = reshape(X_hat,[],3)';
+            if ~self.plotted_lmks_hat
+                self.lmks_hat = plot3(lmks_h(1,:),...
+                                      lmks_h(2,:),...
+                                      lmks_h(3,:),varargin{:}); hold on
+                self.plotted_lmks_hat = true;
+                axis equal
+            else
+                set(self.lmks_hat,'XData',lmks_h(1,:),...
+                                  'YData',lmks_h(2,:),...
+                                  'ZData',lmks_h(3,:));
             end
         end
     end

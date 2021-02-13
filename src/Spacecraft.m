@@ -27,7 +27,7 @@ classdef Spacecraft < handle
     methods (Access = public)
         % Propagate the spacecraft forward in time:
         function [self] = propagate(self,dt,body)
-            X = rk4(@self.dynamics,dt,[self.r; self.v],body);
+            X = rk4(@gravFieldDynamics,dt,[self.r; self.v],body);
             self.r = X(1:3);
             self.v = X(4:6);
         end
@@ -40,10 +40,15 @@ classdef Spacecraft < handle
             % Detect points that are pointed towards the camera:
             cameraNorms = self.rotmat*body.lmk_norms_i;
             visible = cameraNorms(3,:)>0;
+%             visible = true;
             
             % Detect points that are illuminated:
-            dir_sgn = sum(body.sun_vec.*body.lmk_norms_i,1);
-            illuminated = dir_sgn>0;
+            if norm(body.sun_vec) == 0
+                illuminated = true;
+            else
+                dir_sgn = sum(body.sun_vec.*body.lmk_norms_i,1);
+                illuminated = dir_sgn>0;
+            end
             
             % Select only points that are in FOV, illuminated, and visible:
             visible = inFOV & visible & illuminated;
@@ -70,13 +75,6 @@ classdef Spacecraft < handle
             else
                 self.xyz = updateOrientation(self.xyz,self.r,rotMat);
             end
-        end
-    end
-    
-    methods (Access = private)
-        function [dX] = dynamics(~,~,X,body)
-            a = body.gravityField.acceleration(X(1:3), body.inert2body);
-            dX = [X(4:6); a];
         end
     end
 end
