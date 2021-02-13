@@ -19,7 +19,7 @@ classdef Camera < handle
     %% Public Methods:
     methods (Access = public)
         % Function to project world points into the image space:
-        function [imagePoints,varargout] = worldToImage(self, worldPoints,rotMat,position)
+        function [imagePoints,inFOV] = worldToImage(self,worldPoints,rotMat,position)
             % worldPoints = 3xN world points
             % rotMat   = 3x3 rotation matrix
             % position = 3x1 position vector
@@ -27,14 +27,6 @@ classdef Camera < handle
 
             % Transform world points into camera frame:
             cameraPoints = rotMat*(worldPoints - position);
-
-            % Remove features pointed away from the camera:
-            if ~any(isnan(normals)) % normals == nan allows us to bypass this step
-                cameraNorms  = rotMat*normals;
-                inds0 = cameraNorms(3,:)<0;
-            else
-                inds0 = false(1,size(cameraPoints,2));
-            end
 
             % Calculate homogeneous coordinates:
             homogeneous = self.K*[cameraPoints; ones(1,size(cameraPoints,2))];
@@ -45,24 +37,13 @@ classdef Camera < handle
 
             % Reject points which do not fall on the sensor, or which are behind
             % the camera
-            if ~any(isnan(self.fov))
-                inds1 = abs(imagePoints(1,:))>self.fov(1);
-                inds2 = abs(imagePoints(2,:))>self.fov(2);
-                inds3 = homogeneous(3,:)>0;
-                inds = (inds0 | inds1 | inds2 | inds3);
-                imagePoints(:,inds) = [];
-            else
-                inds = nan;
-            end
+            remove1 = abs(imagePoints(1,:))>self.fov(1);
+            remove2 = abs(imagePoints(2,:))>self.fov(2);
+            remove3 = homogeneous(3,:)>0;
+            remove = (remove1 | remove2 | remove3);
 
-            % Flip the Image along both axes:
-            imagePoints = -imagePoints;
-            imagePoints = imagePoints + sig_meas*randn(size(imagePoints));
-
-            % Pass out keep indices for color rendering (if requested)
-            if nargout == 2
-                varargout{1} = ~inds;
-            end
+            % Pass out indices of the visible features:
+            inFOV = ~remove;
         end
         
         % Function to generate rays which can be traced out from the camera
