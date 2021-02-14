@@ -37,7 +37,7 @@ classdef Spacecraft < handle
         end
         
         % Take a measurement given a body with a set of lmks:
-        function [imagePoints,visible] = image(self,body,sig_meas)
+        function [imagePoints,visible,lmk_inds] = image(self,body,sig_meas)
             % Project the body landmark locations to the image space:
             [imagePoints,inFOV] = self.camera.worldToImage(body.lmks_i,self.rotmat,self.r);
             
@@ -59,6 +59,8 @@ classdef Spacecraft < handle
             
             % Select only points that are in FOV, illuminated, and visible:
             visible = inFOV & inview & angled & illuminated;
+            lmk_inds = 1:size(body.lmks_i,2);
+            lmk_inds = lmk_inds(visible);
             imagePoints = imagePoints(:,visible);
             imagePoints = -imagePoints; % Import for ray tracing steps
             

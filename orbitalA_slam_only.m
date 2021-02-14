@@ -44,16 +44,12 @@ kappa = 4;
 % Estimation covariance initial values:
 p_r_unc = 10;
 p_v_unc = 10;
-p_lmk_unc_x = 100;
-p_lmk_unc_y = 100;
-p_lmk_unc_z = 100;
+p_lmk_unc = [100; 100; 100]; % Uncertainties in lmks x,y,z
 
 % Process noise covariance initial values:
 q_r = 1e-9;
 q_v = 1e-9;
-q_lmk_x = 1e-9;
-q_lmk_y = 1e-9;
-q_lmk_z = 1e-9;
+q_lmk = [1e-9; 1e-9; 1e-9];
 
 
 %% Initialize:
@@ -106,20 +102,19 @@ sig3 = X_hat;
 
 % Store as initial estimate:
 X_hat(:,1) = [r; v; projectedPoints];
-   
 
 % Initial Covariance matrices:
 P = diag([p_r_unc*ones(1,3),...
           p_v_unc*ones(1,3),...
-          p_lmk_unc_x*ones(1,num_tracking),...
-          p_lmk_unc_y*ones(1,num_tracking),...
-          p_lmk_unc_z*ones(1,num_tracking)]);
+          p_lmk_unc(1)*ones(1,num_tracking),...
+          p_lmk_unc(2)*ones(1,num_tracking),...
+          p_lmk_unc(3)*ones(1,num_tracking)]);
       
 Q = diag([q_r*ones(1,3),...
           q_v*ones(1,3),...
-          q_lmk_x*ones(1,num_tracking),...
-          q_lmk_y*ones(1,num_tracking),...
-          q_lmk_z*ones(1,num_tracking)]);
+          q_lmk(1)*ones(1,num_tracking),...
+          q_lmk(2)*ones(1,num_tracking),...
+          q_lmk(3)*ones(1,num_tracking)]);
       
 R = diag((std_meas^2)*ones(1,2*num_tracking));
 
@@ -130,6 +125,17 @@ dynamics_args    = {bennu};
 measurement_args = {orex};
 ukf_args = {dynamics_args, measurement_args};
 
+%% See the initial map estimate:
+% figure('units','normalized','outerposition',[0 0 1 1])
+% orex.drawRays(image_lmks,radius_hat,r_hat);
+% bennu.drawBody();
+% % bennu.lght = [];
+% set(bennu.ptch,'AmbientStrength',.8,'FaceAlpha',0.5)
+% bennu.drawLmks(visible,'MarkerSize',30);
+% bennu.drawLmks_hat(X_hat(7:end,1),'ob','MarkerSize',10);
+% setLims(apoapsis)
+% camva(2)
+
 %% Run Simulation:
 for ii = 1:L-1
     % Move the scene forward one time step:
@@ -137,8 +143,7 @@ for ii = 1:L-1
     orex.propagate(dt,bennu);
     
     % Collect measurement:
-    [image_lmks,visible] = orex.image(bennu,std_meas);
-    measurement = [image_lmks(1,:)'; image_lmks(2,:)'];   
+    [image_lmks,visible,lmk_inds] = orex.image(bennu,std_meas);
     
     % Generate labels if needed:
     [new_detection,new_inds] = bennu.checkForNewDetections(visible);
@@ -149,21 +154,43 @@ for ii = 1:L-1
         num_tracking = sum(bennu.lmks_obs);
         
         % Create labels for the newly created objects:
-        bennu.createLabels(new_inds,num_tracking)
+        bennu.createLabels(new_inds,num_tracking);
+        
+        % Determine which image points correspond to a new feature:
+        lmk_new_inds = 1:size(bennu.lmks_i,2);
+        lmk_new_inds = lmk_new_inds(new_inds);
+        [~,idx] = intersect(lmk_inds,lmk_new_inds);
         
         % Get initial estimate for newly detected feature:
         radius_hat = camera.radius_estimate(X_hat(1:3,ii),orex.r,bennu.radius);
-        X_hat_new  = initializeMap(camera,image_lmks,orex.rotmat,X_hat(1:3,ii),radius_hat);
+        X_hat_new  = initializeMap(camera,image_lmks(:,idx),...
+                                   orex.rotmat,X_hat(1:3,ii),radius_hat);
         
         % Augment filter if needed:
-%         [X_hat,P,Q,sig3] = ukf_augment(X_hat,P,Q,sig3, ii, X_hat_new);
+        [X_hat,P,Q,sig3] = ukf_augment(X_hat,P,Q,sig3, ii, X_hat_new,...
+                                       p_lmk_unc, q_lmk);
+        
+        % Increase measurement covariance matrix for all possible features
+        % being tracked now:
+        R = diag((std_meas^2)*ones(1,2*num_tracking));
+        fprintf('Added %i new features to the filter at time step %i\n',sum(new_inds),ii)
     end
     
+    % Sort measurements by the corresponding landmark label:
+    labeled_image_lmks = sortrows([bennu.lmks_lbl(visible); image_lmks]')';
+    measurement = [labeled_image_lmks(2,:)'; labeled_image_lmks(3,:)'];
+    
+    % Determine which measurements of the states are available:
+    [~,ia] = intersect(1:num_tracking,bennu.lmks_lbl(visible));
+    measAvailBools = false(size(1:num_tracking));
+    measAvailBools(ia) = true;
+    measAvails = [measAvailBools'; measAvailBools'];
+    
     % Run the filter:======================================================
-%     [X_hat(:,ii+1),P] = ukf(@ukfOrbit, @ukfCamera,...
-%                             X_hat(:,ii), dt,...
-%                             P, Q, R, measAvails, measurement,...
-%                             alpha, beta, kappa, ukf_args{:});
+    [X_hat(:,ii+1),P] = ukf(@ukfOrbit, @ukfCamera,...
+                            X_hat(:,ii), dt,...
+                            P, Q, R, measAvails, measurement,...
+                            alpha, beta, kappa, ukf_args{:});
     % =====================================================================
     
     % Show visualization:
@@ -173,6 +200,7 @@ for ii = 1:L-1
     grid on
     orex.draw(200,'LineWidth',2);
 %     view([ii/3 20])
+    camva(2)
     setLims(1.1*apoapsis)
     drawnow
     
