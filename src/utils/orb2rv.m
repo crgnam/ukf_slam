@@ -1,4 +1,4 @@
-function [r, v] = orbitalElements2PosVel(a,e,inc,w,RAAN,M0,mu)
+function [r, v] = orb2rv(a,e,inc,w,RAAN,M0,mu)
     % This function converts orbital elements to position and velocity.
     n = sqrt(mu/(a^3)); %Mean motion
     dt = 1;
