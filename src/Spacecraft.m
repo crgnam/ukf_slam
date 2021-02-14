@@ -43,7 +43,11 @@ classdef Spacecraft < handle
             
             % Detect points that are pointed towards the camera:
             cameraNorms = self.rotmat*body.lmk_norms_i;
-            visible = cameraNorms(3,:)>0;
+            inview = cameraNorms(3,:)>0;
+            
+            % Detect points which meet with viewing angle requirement:
+            rays   = normc(body.lmks_i - self.r);
+            angled = acos(sum(rays.*-body.lmk_norms_i,1)) < self.camera.max_va;
             
             % Detect points that are illuminated:
             if norm(body.sun_vec) == 0
@@ -54,8 +58,9 @@ classdef Spacecraft < handle
             end
             
             % Select only points that are in FOV, illuminated, and visible:
-            visible = inFOV & visible & illuminated;
+            visible = inFOV & inview & angled & illuminated;
             imagePoints = imagePoints(:,visible);
+            imagePoints = -imagePoints; % Import for ray tracing steps
             
             % Add noise to the measurement image points:
             imagePoints = imagePoints + sig_meas*randn(size(imagePoints));
@@ -82,6 +87,34 @@ classdef Spacecraft < handle
             else
                 self.xyz = updateOrientation(self.xyz,self.r,rotMat);
             end
+        end
+        
+        % Draw the spacecraft's ray projections of image points:
+        function [h] = drawRays(self,imagePoints,radius_estimate,r_hat)
+            % Generate the rays:
+            rays = self.camera.generateRays(imagePoints,self.rotmat);
+            origins = repmat(r_hat',size(rays',1),1);
+            rays = rays';
+            
+            % Trace the rays to find ray-sphere intersections:
+            lines  = [origins rays];
+            sphere = [0 0 0 radius_estimate];
+            intersects = intersectLineSphere(lines, sphere);
+            
+            % Get the closest ray intersections for each set:
+            intersects = getClosestIntersects(intersects,r_hat);
+            
+            % Plot the data:
+            dist = norm(r_hat);
+            quiver3(origins(:,1),origins(:,2),origins(:,3),...
+            dist*rays(:,1),dist*rays(:,2),dist*rays(:,3),'r'); hold on
+            drawSphere(0,0,0,radius_estimate,...
+                       'FaceColor',[0 0 1],'EdgeColor','None','FaceLighting','gouraud',...
+                       'FaceAlpha',0.2,'AmbientStrength',1)
+            plot3(intersects(:,1),intersects(:,2),intersects(:,3),'.m','MarkerSize',30)
+            axis equal
+            grid on
+            
         end
     end
 end

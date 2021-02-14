@@ -7,7 +7,7 @@ import('filters')
 
 %% Simulation Setup:
 % Objects to be tracked:
-num_lmks = 50; % Number of features to be tracked
+num_lmks = 100; % Number of features to be tracked
 
 % Orbit setup: (currently using rough orbital A)
 semi_major   = 1000; %(meters) Orbital radius
@@ -30,32 +30,35 @@ sensor     = [3 2]/1000; %(m) Sensor dimensions
 fov = [sensor(1) sensor(2)]/f;
 K = [f 0 0 0; 0 f 0 0; 0 0 1 0]; % Camera projection matrix:
 std_meas = fov(1)/resolution(1); % Measurement uncertainty of a single pixel
+max_view_angle = deg2rad(70); % Maximum angle away from the normal at which a feature is "visible"
  
 % Time setup:
-dt = 0.5*60;
+dt = 1*60;
 duration = 1*86400;
 
 %% Filter Initialization:
-alpha = 1e-5;
-beta  = 3000;
-kappa = 4-156;
+alpha = 1e-3;
+beta  = 3;
+kappa = 4;
 
-r_unc = 10;
-v_unc = 10;
-P = diag([r_unc*ones(1,3),...
-          v_unc*ones(1,3),...
-          50*ones(1,3*num_lmks)]);
+% Estimation covariance initial values:
+p_r_unc = 10;
+p_v_unc = 10;
+p_lmk_unc_x = 100;
+p_lmk_unc_y = 100;
+p_lmk_unc_z = 100;
 
-Q = diag([1e-9*ones(1,3),...
-          1e-6*ones(1,3),...
-          1e-6*ones(1,3*num_lmks)]);
-
-R = diag((std_meas^2)*ones(1,2*num_lmks));
+% Process noise covariance initial values:
+q_r = 1e-9;
+q_v = 1e-9;
+q_lmk_x = 1e-9;
+q_lmk_y = 1e-9;
+q_lmk_z = 1e-9;
 
 
 %% Initialize:
 % Instantiate camera and asteroid objects:
-camera = Camera(K,fov,sensor,resolution);
+camera = Camera(K,fov,sensor,resolution,max_view_angle);
 bennu  = Asteroid('data/bennu.obj','data/bennugrav.mat',...
                   bennu_inertial2body,bennu_w,sun_vec,num_lmks,1000);
 
@@ -81,28 +84,46 @@ visible_hist = zeros(L,num_lmks);
 meas_hist   = zeros(2*num_lmks,length(tspan));
 avails_hist = zeros(2*num_lmks,length(tspan));
 
-X_hat = zeros(6 + 3*num_lmks, length(tspan));
-sig3 = X_hat;
-sig3_rts = sig3;
-sig3(:,1) = 3*sqrt(diag(P));
-P_hist = zeros(size(P,1),size(P,2),length(tspan));
-
 %% Initialize Map Estimate:
-r_hat = r + r_unc*randn(3,1);
-v_hat = v + v_unc*randn(3,1);
+r_hat = r + p_r_unc*randn(3,1);
+v_hat = v + p_v_unc*randn(3,1);
+
 % Take first image:
 [image_lmks,visible] = orex.image(bennu,0);
 
-% Get initial map: TEMPORARY BYPASS BECAUSE IM LAZY
-% TODO: REMOVE THIS!!!!!
-projectedPoints = zeros(size(bennu.lmks_i));
-projectedPoints(:,visible) = bennu.lmks_i(:,visible);
+% Create labels for new features:
+[new_detection,new_inds] = bennu.checkForNewDetections(visible);
+num_tracking = sum(bennu.lmks_obs);
+bennu.createLabels(new_inds,num_tracking);
+
+% Get initial map:
+radius_hat      = camera.radius_estimate(r_hat,orex.r,bennu.radius);
+projectedPoints = initializeMap(camera,image_lmks,orex.rotmat,r_hat,radius_hat);
+
+% Preallocate estimate:
+X_hat = zeros(6+3*num_tracking,L);
+sig3 = X_hat;
 
 % Store as initial estimate:
-X_hat(:,1) = [r; v;
-              projectedPoints(1,:)';
-              projectedPoints(2,:)';
-              projectedPoints(3,:)'];
+X_hat(:,1) = [r; v; projectedPoints];
+   
+
+% Initial Covariance matrices:
+P = diag([p_r_unc*ones(1,3),...
+          p_v_unc*ones(1,3),...
+          p_lmk_unc_x*ones(1,num_tracking),...
+          p_lmk_unc_y*ones(1,num_tracking),...
+          p_lmk_unc_z*ones(1,num_tracking)]);
+      
+Q = diag([q_r*ones(1,3),...
+          q_v*ones(1,3),...
+          q_lmk_x*ones(1,num_tracking),...
+          q_lmk_y*ones(1,num_tracking),...
+          q_lmk_z*ones(1,num_tracking)]);
+      
+R = diag((std_meas^2)*ones(1,2*num_tracking));
+
+sig3(:,1) = 3*sqrt(diag(P));
 
 % Format arguments for ukf input:
 dynamics_args    = {bennu};
@@ -114,39 +135,54 @@ for ii = 1:L-1
     % Move the scene forward one time step:
     bennu.update(dt);
     orex.propagate(dt,bennu);
-    orex.rotmat = nadir(orex.r,orex.v);
     
     % Collect measurement:
     [image_lmks,visible] = orex.image(bennu,std_meas);
+    measurement = [image_lmks(1,:)'; image_lmks(2,:)'];   
+    
+    % Generate labels if needed:
+    [new_detection,new_inds] = bennu.checkForNewDetections(visible);
+    
+    % Get initial estimate:
+    if new_detection
+        % Update the number of all lmks being tracked:
+        num_tracking = sum(bennu.lmks_obs);
+        
+        % Create labels for the newly created objects:
+        bennu.createLabels(new_inds,num_tracking)
+        
+        % Get initial estimate for newly detected feature:
+        radius_hat = camera.radius_estimate(X_hat(1:3,ii),orex.r,bennu.radius);
+        X_hat_new  = initializeMap(camera,image_lmks,orex.rotmat,X_hat(1:3,ii),radius_hat);
+        
+        % Augment filter if needed:
+%         [X_hat,P,Q,sig3] = ukf_augment(X_hat,P,Q,sig3, ii, X_hat_new);
+    end
     
     % Run the filter:======================================================
-    measurement = [image_lmks(1,:)'; image_lmks(2,:)'];
-    measAvails  = [visible visible]';    
-    [X_hat(:,ii+1), P] = ukf(@ukfOrbit, @ukfCamera,...
-                             X_hat(:,ii), dt,...
-                             P, Q, R, measAvails, measurement,...
-                             alpha, beta, kappa, ukf_args{:});
+%     [X_hat(:,ii+1),P] = ukf(@ukfOrbit, @ukfCamera,...
+%                             X_hat(:,ii), dt,...
+%                             P, Q, R, measAvails, measurement,...
+%                             alpha, beta, kappa, ukf_args{:});
     % =====================================================================
     
     % Show visualization:
-%     bennu.drawBody();
+    bennu.drawBody();
     bennu.drawLmks(visible,'MarkerSize',10);
-    bennu.drawLmks_hat(X_hat(7:end,ii+1),'om','MarkerSize',10)
+    bennu.drawLmks_hat(X_hat(7:end,ii+1),'om','MarkerSize',10);
     grid on
-%     orex.draw(200,'LineWidth',2);
+    orex.draw(200,'LineWidth',2);
 %     view([ii/3 20])
-%     setLims(1.1*apoapsis)
+    setLims(1.1*apoapsis)
     drawnow
     
     % Log data:
     r_hist(:,ii+1) = orex.r;
     v_hist(:,ii+1) = orex.v;
-    lmks_hist(:,:,ii+1) = bennu.lmks_i;
-    visible_hist(ii,:)= visible; 
-    sig3(:,ii+1) = 3*sqrt(diag(P));
-    P_hist(:,:,ii+1) = P;
-    avails_hist(:,ii+1) = measAvails;
-    meas_hist(1:sum(measAvails),ii+1) = measurement;
+%     lmks_hist(:,:,ii+1) = bennu.lmks_i;
+%     visible_hist(ii,:)= visible; 
+%     sig3(:,ii+1) = 3*sqrt(diag(P));
+%     meas_hist(size(measurement,1),ii+1) = measurement;
 end
 
 %% Align Maps:
@@ -158,6 +194,7 @@ t_ukf = regParams.t;
 S_ukf = regParams.s;
 estimated_map = (1/S_ukf)*R_ukf'*(estimated_map - t_ukf);
 
+figure()
 scatter3(bennu.lmks_i(1,:),bennu.lmks_i(2,:),bennu.lmks_i(3,:),...
          20,'g','filled'); hold on; axis equal; grid on
 scatter3(estimated_map(1,:),estimated_map(2,:),estimated_map(3,:),...

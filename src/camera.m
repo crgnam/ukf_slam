@@ -4,15 +4,17 @@ classdef Camera < handle
         fov
         sensor
         resolution
+        max_va %(rad) Maximum viewing angle (angle of view relative to lmk normal)
     end
     
     %% Constructor:
     methods (Access = public)
-        function [self] = Camera(K,fov,sensor,resolution)
+        function [self] = Camera(K,fov,sensor,resolution,max_va)
             self.K = K;
             self.fov = fov;
             self.sensor = sensor;
             self.resolution = resolution;
+            self.max_va = max_va;
         end
     end
     
@@ -56,11 +58,16 @@ classdef Camera < handle
         end
         
         % Generate rays which can be traced out from the camera
-        function [rays] = generateRays(imagePoints,rotMat)
+        function [rays] = generateRays(self,imagePoints,rotMat)
             % Function generates rays (as unit vectors of shape 3xN) given a
             % set of image points (2xN) and a camera projection matrix K
             raysCamFrame = [imagePoints; -self.K(1,1)*ones(1,size(imagePoints,2))];
             rays = normc(rotMat'*raysCamFrame);
+        end
+        
+        % Get a radius estimate based on angular size:
+        function [radius_estimate] = radius_estimate(~,r_hat,r_true,radius_true)
+            radius_estimate = radius_true*norm(r_hat)/norm(r_true);
         end
     end
 end

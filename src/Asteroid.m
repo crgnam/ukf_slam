@@ -11,11 +11,12 @@ classdef Asteroid < handle
         lmk_norms_i % landmark normals inertial
         lmk_norms_b % landmark normals body
         lmks_obs % boolean aray for if landmark has ever been observed
-        lmks_lbl % label for landmarks sequentially, in order of observation
+        lmks_lbl % label for landmarks in order of first observation
         
         % Environment:
         inert2body
         radius
+        radius_max
         rotation_axis
         rotation_rate
         sun_vec
@@ -33,7 +34,8 @@ classdef Asteroid < handle
         plotted_body = false;
         plotted_lmks = false;
         lmk_vis
-        lmk_inv
+        lmk_inv_obs
+        lmk_inv_unobs
         
         % Estimated (for plotting):
         lmks_hat
@@ -63,6 +65,7 @@ classdef Asteroid < handle
             self.mu  = mu;
             [~,radii] = normr(self.verts_b);
             self.radius = mean(radii);
+            self.radius_max = max(radii);
             self.gravityField = GravityField(self.radius, mu, Cnm, Snm);
             
             % Calculate landmark locations:
@@ -76,6 +79,10 @@ classdef Asteroid < handle
             self.rotation_axis = self.inert2body(3,:)';
             self.rotation_rate = rotation_rate;
             self.sun_vec = sun_vec;
+            
+            % Initialize labels and observation trackers:
+            self.lmks_obs = false(1,size(self.lmks_i,2));
+            self.lmks_lbl = zeros(1,size(self.lmks_i,2));
         end
     end
     
@@ -99,9 +106,28 @@ classdef Asteroid < handle
             end
         end
         
-        % Add a label for a newly detected landmark:
-        function [self] = addLabel(self)
+        % Check if observations contain a newly detected lmk:
+        function [new_detection,new_inds] = checkForNewDetections(self,visible)
+            lmks_obs_prev = self.lmks_obs;
+            lmks_obs_new  = self.lmks_obs | visible;
+            lmks_obs_sum  = lmks_obs_new + lmks_obs_prev;
             
+            % Previously seen lmks will = 2, while new will = 1
+            new_inds = lmks_obs_sum == 1;
+            if sum(new_inds) > 0
+                new_detection = true;
+            else
+                new_detection = false;
+            end
+            
+            % Store for future:
+            self.lmks_obs = lmks_obs_new;
+        end
+        
+        % Create labels for newly detected lmks:
+        function [self] = createLabels(self,new_inds,num_tracking)
+            current_num = max(self.lmks_lbl);
+            self.lmks_lbl(new_inds) = (current_num+1):num_tracking;
         end
     end
     
@@ -125,12 +151,12 @@ classdef Asteroid < handle
         
         % Draw the body in a standalone fashion (useful for a single plot):
         function [p,l] = drawBodyStandalone(self,axs)
-            p = patch(axs,'Faces',self.faces.v,'Vertices',self.verts,...
-                           'FaceColor',[0.5 0.5 0.5],'EdgeColor','None',...
-                           'FaceLighting','gouraud','AmbientStrength',0.5,...
+            p = patch(axs,'Faces',self.faces.v,'Vertices',self.verts_i',...
+                           'FaceColor',1*[1 1 1],'EdgeColor','None',...
+                           'FaceLighting','gouraud','AmbientStrength',0.1,...
                            'SpecularStrength',0);
             l = light(axs,'Position',1*self.sun_vec);
-            hold on; axis equal
+            hold on; axis equal; rotate3d on
         end
         
         % Function to draw landmarks:
@@ -146,18 +172,25 @@ classdef Asteroid < handle
                 self.lmk_vis = plot3(self.lmks_i(1,inds),...
                                      self.lmks_i(2,inds),...
                                      self.lmks_i(3,inds),'.g',varargin{:}); hold on
-                self.lmk_inv = plot3(self.lmks_i(1,~inds),...
-                                     self.lmks_i(2,~inds),...
-                                     self.lmks_i(3,~inds),'.r',varargin{:});
+                self.lmk_inv_obs   = plot3(nan,nan,nan,'.b',varargin{:});
+                self.lmk_inv_unobs = plot3(self.lmks_i(1,~inds),...
+                                           self.lmks_i(2,~inds),...
+                                           self.lmks_i(3,~inds),'.r',varargin{:});
                 self.plotted_lmks = true;
                 axis equal
             else
                 set(self.lmk_vis,'XData',self.lmks_i(1,inds),...
                                  'YData',self.lmks_i(2,inds),...
                                  'ZData',self.lmks_i(3,inds));
-                set(self.lmk_inv,'XData',self.lmks_i(1,~inds),...
-                                 'YData',self.lmks_i(2,~inds),...
-                                 'ZData',self.lmks_i(3,~inds));
+                inds = ~inds;
+                inds_obs   = inds & self.lmks_obs;
+                inds_unobs = ~inds_obs & inds;
+                set(self.lmk_inv_obs,'XData',self.lmks_i(1,inds_obs),...
+                                     'YData',self.lmks_i(2,inds_obs),...
+                                     'ZData',self.lmks_i(3,inds_obs));
+                set(self.lmk_inv_unobs,'XData',self.lmks_i(1,inds_unobs),...
+                                       'YData',self.lmks_i(2,inds_unobs),...
+                                       'ZData',self.lmks_i(3,inds_unobs));
             end
         end
         
