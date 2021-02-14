@@ -84,7 +84,6 @@ function [X_hat, P] = ukf(dynamics, measModel, X_hat, dt,...
         K   = Pxy*Pyy^-1;
         
         % State and Covariance Update (3.249):
-%         disp(meas-y_hat)
         X_hat = X_hat + K*(meas - y_hat);
         P = P - K*Pxy';
     end

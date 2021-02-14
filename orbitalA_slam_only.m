@@ -7,7 +7,7 @@ import('filters')
 
 %% Simulation Setup:
 % Objects to be tracked:
-num_lmks = 100; % Number of features to be tracked
+num_lmks = 50; % Number of features to be tracked
 
 % Orbit setup: (currently using rough orbital A)
 semi_major   = 1000; %(meters) Orbital radius
@@ -21,7 +21,7 @@ apoapsis = semi_major*(1+eccentricity);
 % Bennu states:
 sun_vec             = [0;1;0]; % Sun vector (for illumination visibility of lmks)
 bennu_inertial2body = ea2rotmat(0,0,0,'321'); % Orientation of Bennu
-bennu_w             = 2*pi/(4.3*3600); %(rad/s) Rotation rate of bennu
+bennu_w             = 0*2*pi/(4.3*3600); %(rad/s) Rotation rate of bennu
 
 % Setup camera (pinhole model):
 f = .055; %(m) Camera focal length
@@ -37,19 +37,19 @@ dt = 1*60;
 duration = 1*86400;
 
 %% Filter Initialization:
-alpha = 1e-3;
-beta  = 3;
+alpha = 1e-4;
+beta  = 2000;
 kappa = 4;
 
 % Estimation covariance initial values:
 p_r_unc = 10;
 p_v_unc = 10;
-p_lmk_unc = [100; 100; 100]; % Uncertainties in lmks x,y,z
+p_lmk_unc = [200; 200; 200]; % Uncertainties in lmks x,y,z
 
 % Process noise covariance initial values:
-q_r = 1e-9;
-q_v = 1e-9;
-q_lmk = [1e-9; 1e-9; 1e-9];
+q_r = 1e-7;
+q_v = 1e-7;
+q_lmk = [1e-7; 1e-7; 1e-7];
 
 
 %% Initialize:
@@ -170,6 +170,17 @@ for ii = 1:L-1
         [X_hat,P,Q,sig3] = ukf_augment(X_hat,P,Q,sig3, ii, X_hat_new,...
                                        p_lmk_unc, q_lmk);
         
+        P = diag([p_r_unc*ones(1,3),...
+                  p_v_unc*ones(1,3),...
+                  p_lmk_unc(1)*ones(1,num_tracking),...
+                  p_lmk_unc(2)*ones(1,num_tracking),...
+                  p_lmk_unc(3)*ones(1,num_tracking)]);
+
+        Q = diag([q_r*ones(1,3),...
+                  q_v*ones(1,3),...
+                  q_lmk(1)*ones(1,num_tracking),...
+                  q_lmk(2)*ones(1,num_tracking),...
+                  q_lmk(3)*ones(1,num_tracking)]);
         % Increase measurement covariance matrix for all possible features
         % being tracked now:
         R = diag((std_meas^2)*ones(1,2*num_tracking));
@@ -199,8 +210,8 @@ for ii = 1:L-1
     bennu.drawLmks_hat(X_hat(7:end,ii+1),'om','MarkerSize',10);
     grid on
     orex.draw(200,'LineWidth',2);
-%     view([ii/3 20])
-    camva(2)
+    view([ii*3 20])
+    camva(3)
     setLims(1.1*apoapsis)
     drawnow
     

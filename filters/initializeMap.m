@@ -11,10 +11,19 @@ function [X_hat] = initializeMap(camera,image_lmks,rotmat,r_hat,radius_estimate)
     lines  = [origins rays];
     sphere = [0 0 0 radius_estimate];
     intersects = intersectLineSphere(lines, sphere);
-
-    % Get the closest ray intersections for each set:
-    intersects = getClosestIntersects(intersects,r_hat);
     
-    % Store as a new state vector:
-    X_hat = [intersects(:,1); intersects(:,2); intersects(:,3)];
+    % If the sphere intersection failed, do a simply distance projection
+    if any(isnan(intersects))
+        projectedPoints = origins + norm(r_hat)*rays;
+        X_hat = [projectedPoints(:,1);
+                 projectedPoints(:,2);
+                 projectedPoints(:,3)];
+        disp('SPHERE PROJECTION FAILED')
+    else
+        % Get the closest ray intersections for each set:
+        intersects = getClosestIntersects(intersects,r_hat);
+
+        % Store as a new state vector:
+        X_hat = [intersects(:,1); intersects(:,2); intersects(:,3)];
+    end
 end

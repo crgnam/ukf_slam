@@ -50,17 +50,18 @@ function [X_hat,P,Q,sig3] = ukf_augment(X_hat,P,Q,sig3, ii, X_hat_new,p_lmk_unc,
     X_hat_aug(inds6_aug,ii) = X_hat_new(inds3_new);
     
     % Augment the Estimation Covariance Matrix:
-    SCALE = 2;
+    SCALE = 1;
+    ADD   = 5;
     P_diag = diag(P);
     P_diag_new = repelem(p_lmk_unc,N/3);
     P_diag_aug = zeros(6+N_prev+N,1);
-    P_diag_aug(1:6)       = SCALE*P_diag(1:6,:);
+    P_diag_aug(1:6)       = SCALE*P_diag(1:6,:)+ADD;
     P_diag_aug(inds1_aug) = P_diag(inds1,:);
-    P_diag_aug(inds2_aug) = SCALE*P_diag_new(inds1_new);
+    P_diag_aug(inds2_aug) = SCALE*P_diag_new(inds1_new)+ADD;
     P_diag_aug(inds3_aug) = P_diag(inds2,:);
-    P_diag_aug(inds4_aug) = SCALE*P_diag_new(inds2_new);
+    P_diag_aug(inds4_aug) = SCALE*P_diag_new(inds2_new)+ADD;
     P_diag_aug(inds5_aug) = P_diag(inds3,:);
-    P_diag_aug(inds6_aug) = SCALE*P_diag_new(inds3_new);
+    P_diag_aug(inds6_aug) = SCALE*P_diag_new(inds3_new)+ADD;
     P_aug = diag(P_diag_aug);
 
     % Augment the 3-sigma bound tracker:
