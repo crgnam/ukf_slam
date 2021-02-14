@@ -18,7 +18,7 @@ function [X_hat] = initializeMap(camera,image_lmks,rotmat,r_hat,radius_estimate)
         X_hat = [projectedPoints(:,1);
                  projectedPoints(:,2);
                  projectedPoints(:,3)];
-        disp('SPHERE PROJECTION FAILED')
+        disp('SPHERE PROJECTION FAILED.  USING SIMPLE RAY PROJECTION')
     else
         % Get the closest ray intersections for each set:
         intersects = getClosestIntersects(intersects,r_hat);
