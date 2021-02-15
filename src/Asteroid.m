@@ -88,6 +88,17 @@ classdef Asteroid < handle
     
     %% Public Methods
     methods (Access = public)
+        % Reset all drawing data:
+        function [self] = reset(self)
+            self.ax = [];
+            self.ptch = [];
+            self.lght = [];
+            self.plotted_body = false;
+            self.plotted_lmks = false;
+            self.lmks_hat = [];
+            self.plotted_lmks_hat = false;
+        end
+        
         % Update parameters about the asteroid:
         function [self] = update(self,dt)
             rotmat = self.rotate(dt);
@@ -137,9 +148,9 @@ classdef Asteroid < handle
         function [] = drawBody(self)
             if ~self.plotted_body
                 self.ptch = patch('Faces',self.faces.v,'Vertices',self.verts_i',...
-                                  'FaceColor',1*[1 1 1],'EdgeColor','None',...
+                                  'FaceColor',.7*[1 1 1],'EdgeColor','None',...
                                   'FaceLighting','gouraud','AmbientStrength',0.1,...
-                                  'SpecularStrength',0,'FaceAlpha',.5);
+                                  'SpecularStrength',0,'FaceAlpha',1);
                 self.ax = gca;
                 self.lght = light(self.ax,'Position',1*self.sun_vec);
                 hold on; axis equal; rotate3d on

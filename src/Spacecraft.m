@@ -4,13 +4,16 @@ classdef Spacecraft < handle
         r
         v
         rotmat
+        rotmat_hat
         
         % camera object:
         camera
         
         % visualization stuff:
         plotted_spacecraft = false;
+        plotted_spacecraftEstimate = false;
         xyz
+        xyz_hat
     end
     
     %% Constructor
@@ -71,6 +74,12 @@ classdef Spacecraft < handle
     
     %% Public Methods for Visualizations
     methods (Access = public)
+        % Reset all drawing data:
+        function [self] = reset(self)
+            self.plotted_spacecraft = false;
+            self.plotted_spacecraftEstimate = false;
+        end
+        
         % Draw the spacecraft's current attitude:
         function [] = draw(self,varargin)
             if isnumeric(varargin{1})
@@ -84,10 +93,30 @@ classdef Spacecraft < handle
             
             rotMat = scale*self.rotmat;
             if ~self.plotted_spacecraft
-                self.xyz = drawOrientation(self.r,rotMat,varargin{:});
+                self.xyz = drawOrientation(self.r,rotMat,'-',varargin{:});
                 self.plotted_spacecraft = true;
             else
                 self.xyz = updateOrientation(self.xyz,self.r,rotMat);
+            end
+        end
+        
+        % Draw a depiction of the spacecrat's estimated position:
+        function [] = drawEstimate(self,r_hat,varargin)
+            if isnumeric(varargin{1})
+                scale = varargin{1};
+                if nargin > 2
+                    varargin = varargin(2:end);
+                end
+            else
+                scale = 1;
+            end
+            
+            rotMat = scale*self.rotmat;
+            if ~self.plotted_spacecraftEstimate
+                self.xyz_hat = drawOrientation(r_hat,rotMat,'--',varargin{:});
+                self.plotted_spacecraftEstimate = true;
+            else
+                self.xyz_hat = updateOrientation(self.xyz_hat,r_hat,rotMat);
             end
         end
         
