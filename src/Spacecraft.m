@@ -82,13 +82,17 @@ classdef Spacecraft < handle
         
         % Draw the spacecraft's current attitude:
         function [] = draw(self,varargin)
-            if isnumeric(varargin{1})
-                scale = varargin{1};
-                if nargin > 2
-                    varargin = varargin(2:end);
+            if nargin > 1
+                if isnumeric(varargin{1})
+                    scale = varargin{1};
+                    if nargin > 2
+                        varargin = varargin(2:end);
+                    else
+                        varargin = {};
+                    end
+                else
+                    scale = 1;
                 end
-            else
-                scale = 1;
             end
             
             rotMat = scale*self.rotmat;
@@ -102,16 +106,20 @@ classdef Spacecraft < handle
         
         % Draw a depiction of the spacecrat's estimated position:
         function [] = drawEstimate(self,r_hat,varargin)
-            if isnumeric(varargin{1})
-                scale = varargin{1};
-                if nargin > 2
-                    varargin = varargin(2:end);
+            if nargin > 1
+                if isnumeric(varargin{1})
+                    scale = varargin{1};
+                    if nargin > 2
+                        varargin = varargin(2:end);
+                    else
+                        varargin = {};
+                    end
+                else
+                    scale = 1;
                 end
-            else
-                scale = 1;
             end
             
-            rotMat = scale*self.rotmat;
+            rotMat = scale*self.rotmat_hat;
             if ~self.plotted_spacecraftEstimate
                 self.xyz_hat = drawOrientation(r_hat,rotMat,'--',varargin{:});
                 self.plotted_spacecraftEstimate = true;
@@ -121,27 +129,35 @@ classdef Spacecraft < handle
         end
         
         % Draw the spacecraft's ray projections of image points:
-        function [h] = drawRays(self,imagePoints,radius_estimate,r_hat)
+        function [h] = drawRays(self,imagePoints,radius_estimate,radius_max,r_hat)
+            % Calculate distance:
+            distance = norm(r_hat);
+    
             % Generate the rays:
-            rays = self.camera.generateRays(imagePoints,self.rotmat);
-            origins = repmat(r_hat',size(rays',1),1);
+            rays = self.camera.generateRays(imagePoints,self.rotmat_hat);
+            origins = zeros(size(rays',1),3);
             rays = rays';
             
             % Trace the rays to find ray-sphere intersections:
             lines  = [origins rays];
-            sphere = [0 0 0 radius_estimate];
+            sphere_pos = self.rotmat_hat'*[0;0;-distance];
+            sphere = [sphere_pos' radius_estimate];
             intersects = intersectLineSphere(lines, sphere);
-            
-            % Get the closest ray intersections for each set:
+                      
+            if any(isnan(intersects))
+%                 intersects = origins + distance*rays;
+                sphere = [sphere_pos' (radius_max+radius_estimate)/2];
+                intersects = intersectLineSphere(lines, sphere);
+            end
             intersects = getClosestIntersects(intersects,r_hat);
+            intersects = intersects - sphere_pos';
             
             % Plot the data:
-            dist = norm(r_hat);
-            quiver3(origins(:,1),origins(:,2),origins(:,3),...
-            dist*rays(:,1),dist*rays(:,2),dist*rays(:,3),'r'); hold on
-            drawSphere(0,0,0,radius_estimate,...
+            quiver3(origins(:,1)+r_hat(1),origins(:,2)+r_hat(2),origins(:,3)+r_hat(3),...
+            distance*rays(:,1),distance*rays(:,2),distance*rays(:,3),'r'); hold on
+            drawSphere(0,0,0,sphere(4),...
                        'FaceColor',[0 0 1],'EdgeColor','None','FaceLighting','gouraud',...
-                       'FaceAlpha',0.2,'AmbientStrength',1)
+                       'FaceAlpha',0.2,'AmbientStrength',1);
             plot3(intersects(:,1),intersects(:,2),intersects(:,3),'.m','MarkerSize',30)
             axis equal
             grid on
