@@ -436,7 +436,7 @@ saveas(gcf,'results/residuals.png')
 
 %% Run the Smoother:
 disp('Running Smoother')
-load('results/environment.mat')
+load('results/environment_final.mat')
 [M,P_hist,D] = urts(X_hat2,P_hist2,@ukfOrbit_RTS,dt,Q,dynamics_args,alpha,beta,kappa,0,1);
 
 r_sig_rts = zeros(size(P_hist,1),size(P_hist,3));
@@ -446,7 +446,7 @@ end
 
 %% Generate predicted measurements from Smoother states:
 disp('Generating Predicted Measurements')
-load('results/original.mat')
+load('results/environment_initial.mat')
 % Move scenario forward to the starting location:
 L_adjust = length(tspan(1:end-L2));
 for ii = 1:L_adjust-2
@@ -526,7 +526,7 @@ set(findall(gcf,'-property','FontSize'),'FontSize',20)
 
 
 %% Align Maps:
-load('results/environment.mat')
+load('results/environment_final.mat')
 % Format the estimated map from the UKF output:
 estimated_map = reshape(M(7:end,end),[],3)';
 
@@ -536,7 +536,7 @@ true_map_lbl = sortrows([bennu.lmks_lbl(bennu.lmks_obs); bennu.lmks_i(:,bennu.lm
 true_map = true_map_lbl(2:end,:);
 
 % Use Horn's algorithm to perform map alignment:
-[regParams,~, errorStats_ukf] = absor(true_map,estimated_map,'doScale',false,'doTrans',true);
+[regParams,~, errorStats_ukf] = absor(true_map,estimated_map,'doScale',true,'doTrans',true);
 R_ukf = regParams.R;
 t_ukf = regParams.t;
 S_ukf = regParams.s;

@@ -16,6 +16,7 @@ dt = 1*60;
 orbital_period = 89836;
 % duration = 3*86400;
 duration = orbital_period;
+tspan = dt:dt:duration;
 
 %% Filter Initialization:
 alpha = 1e-5;
