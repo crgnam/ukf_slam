@@ -83,7 +83,7 @@ r_hat = r + p_r_unc*randn(3,1);
 v_hat = v + p_v_unc*randn(3,1);
 
 % Take first image:
-[image_lmks,visible] = orex.image(bennu,0);
+[image_lmks,visible] = orex.imageBody(bennu,0);
 % image_lmks(1,:) = -image_lmks(1,:);
 
 % Create labels for new features:
@@ -157,7 +157,7 @@ for ii = 1:L-1
     orex.rotmat_hat = orex.rotmat;
     
     % Collect measurement:
-    [image_lmks,visible,lmk_inds] = orex.image(bennu,std_meas);
+    [image_lmks,visible,lmk_inds] = orex.imageBody(bennu,std_meas);
     
     % Generate labels if needed:
     [new_detection,new_inds] = bennu.checkForNewDetections(visible);

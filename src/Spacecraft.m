@@ -12,6 +12,8 @@ classdef Spacecraft < handle
         % visualization stuff:
         plotted_spacecraft = false;
         plotted_spacecraftEstimate = false;
+        plotted_traj = false;
+        traj_handle
         xyz
         xyz_hat
     end
@@ -40,11 +42,43 @@ classdef Spacecraft < handle
         end
         
         % Take a measurement given a body with a set of lmks:
-        function [imagePoints,visible,lmk_inds] = image(self,body,sig_meas)
+        function [imagePoints,visible,lmk_inds] = imageBody(self,body,sig_meas)
             % Project the body landmark locations to the image space:
             [imagePoints,inFOV] = self.camera.worldToImage(body.lmks_i,self.rotmat,self.r);
             
             % Detect points that are pointed towards the camera:
+            cameraNorms = self.rotmat*body.lmk_norms_i;
+            inview = cameraNorms(3,:)>0;
+            
+            % Detect points which meet with viewing angle requirement:
+            rays   = normc(body.lmks_i - self.r);
+            angled = acos(sum(rays.*-body.lmk_norms_i,1)) < self.camera.max_va;
+            
+            % Detect points that are illuminated:
+            if norm(body.sun_vec) == 0
+                illuminated = true;
+            else
+                dir_sgn = sum(body.sun_vec.*body.lmk_norms_i,1);
+                illuminated = dir_sgn>0;
+            end
+            
+            % Select only points that are in FOV, illuminated, and visible:
+            visible = inFOV & inview & angled & illuminated;
+            lmk_inds = 1:size(body.lmks_i,2);
+            lmk_inds = lmk_inds(visible);
+            imagePoints = imagePoints(:,visible);
+            imagePoints = -imagePoints; % Import for ray tracing steps
+            
+            % Add noise to the measurement image points:
+            imagePoints = imagePoints + sig_meas*randn(size(imagePoints));
+        end
+        
+        % Take a measurement given a set of 3d locations:
+        function [imagePoints,visible] = image(self,points,body,sig_meas)
+            % Project the body landmark locations to the image space:
+            [imagePoints,inFOV] = self.camera.worldToImage(points,self.rotmat,self.r);
+            
+            % Detect points that are not occluded by the body:
             cameraNorms = self.rotmat*body.lmk_norms_i;
             inview = cameraNorms(3,:)>0;
             
@@ -93,6 +127,8 @@ classdef Spacecraft < handle
                 else
                     scale = 1;
                 end
+            else
+                scale = 1;
             end
             
             rotMat = scale*self.rotmat;
@@ -101,6 +137,21 @@ classdef Spacecraft < handle
                 self.plotted_spacecraft = true;
             else
                 self.xyz = updateOrientation(self.xyz,self.r,rotMat);
+            end
+        end
+        
+        % Draw the trajectory history of the spacecraft:
+        function [self] = drawTraj(self,r_hist,varargin)
+            if ~self.plotted_traj
+                self.traj_handle = plot3(r_hist(1,:),...
+                                         r_hist(2,:),....
+                                         r_hist(3,:),...
+                                         varargin{:}); hold on
+                self.plotted_traj = true;
+            else
+                set(self.traj_handle,'XDAta',r_hist(1,:),...
+                                     'YData',r_hist(2,:),...
+                                     'ZData',r_hist(3,:))
             end
         end
         
