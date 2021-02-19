@@ -134,26 +134,26 @@ for ii = 1:L-1
     
     % COLLECT MEASUREMENTS: ===============================================
     % Collect measurement of the landmarks:
-    [image_lmks,visible,lmk_inds] = orex.imageBody(bennu,optical_std);
+    [image_lmks,visible_lmks,lmk_inds] = orex.imageBody(bennu,optical_std);
     
     % Collect optical measurements of the UWB transceivers:
-%     image_uwb = orex.image(uwb.r,optical_std);
+%     [image_uwb,visible_uwb] = orex.image(uwb.r,optical_std);
     
     % Collect the UWB inter-transceiver range and angle measurements:
-    range_meas = uwb.measureRanges(orex,bennu,range_uwb_std);
-%     angle_meas = uwb.measureAngles(range_
+    [range_meas,range_avail,vec_pairs] = uwb.measureRanges(orex,bennu,range_uwb_std);
+%     [angle_meas,angle_avail] = uwb.measureAngles(range_uwb_std,vec_pairs,range_avail);
     
     
     % FORMAT MEASUREMENTS FOR UKF: ========================================
     % Sort the identified landmarks by their landmark id:
-    labeled_image_lmks = sortrows([bennu.lmks_lbl(visible); image_lmks]')';
+    labeled_image_lmks = sortrows([bennu.lmks_lbl(visible_lmks); image_lmks]')';
     
     measurement = [labeled_image_lmks(2,:)';
                    labeled_image_lmks(3,:)';
                    ];
     
     % Determine which measurements of the states are available:
-    [~,ia] = intersect(1:num_lmks,bennu.lmks_lbl(visible));
+    [~,ia] = intersect(1:num_lmks,bennu.lmks_lbl(visible_lmks));
     measAvailBools = false(num_lmks,1);
     measAvailBools(ia) = true;
     measAvails = [measAvailBools'; measAvailBools'];

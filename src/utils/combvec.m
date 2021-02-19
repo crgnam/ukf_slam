@@ -4,7 +4,7 @@ function [vec_pairs] = combvec(r)
     
     % Generate all pairs of vectors:
     [A,B] = meshgrid(1:num_rows,1:num_rows);
-    c = cat(2,A',B');
+    c = cat(2,B',A');
     d = reshape(c,[],2);
     
     % Remove pairs that are of the same vector:

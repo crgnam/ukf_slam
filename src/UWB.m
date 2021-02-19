@@ -43,28 +43,38 @@ classdef UWB < handle
         % Calculate all of the range measurements:
         function [measurement,avail,vec_pairs] = measureRanges(self,satellite,body,std_meas)
             % Generate all pairs of connections:
-            vec_pairs = combvec(self.r);
-            vec_pairs = [vec_pairs;
-                         repmat(satellite.r',self.num_transceivers,1), self.r';
-                         self.r', repmat(satellite.r',self.num_transceivers,1)];
-
+            vec_pairs = combvec([satellite.r, self.r]);
+            
             % Find pairs which are blocked by the body:
             origins = vec_pairs(:,1:3);
             [rays,ranges] = normr(vec_pairs(:,4:6) - origins);
+                
+            % Check if availability has already been calculated:
+            % TODO: Consider optimizing this ray casting check by
+            % eliminating duplicate (anti-parallel) rays.  Should double
+            % speed
             lines  = [origins rays];
             sphere = [0 0 0 body.radius];
             intersects = intersectLineSphere(lines, sphere);
             intersects = sum([intersects(1:size(intersects,1)/2,:),...
                               intersects(1+size(intersects,1)/2:end,:)],2);
-                 
+
             % Create boolean array of available measurements, and measurements:
-            avail = isnan(intersects);
-            measurement = ranges(avail) + std_meas*randn(size(ranges(avail),1),1);
+            avail = isnan(intersects);            
+            measurement = ranges(avail) + std_meas*randn(size(ranges(avail),1),1);    
         end
         
         % Calculate all of the PDoA angle measurements:
-        function [measurement] = measureAngles(self,std_meas)
+        function [measurement,avail] = measureAngles(self,std_meas,vec_pairs,avail)
+            % TODO: Maybe don't make this dependent on having already run
+            % range?  I don't see a problem with it for right now, as the
+            % PDoA angles are much less important than the range
+            % measurements.  But it'd be nice for making code clean.
             
+            % Calculate the unit vectors between all UWB transceivers:
+            rays = normr(vec_pairs(:,4:6) - origins);
+            
+            % Calculate all angle measurements:
         end
     end
     
@@ -109,6 +119,9 @@ classdef UWB < handle
                 num_pairs = factorial(self.num_transceivers)/factorial(self.num_transceivers - 2);
                 vec_pairs =  nan(num_pairs+2*self.num_transceivers,6);
             end
+            
+            % TEST: Remove all except vectors to the satellite:
+            vec_pairs(self.num_transceivers+1:end,:) = nan;
             
             % Update the drawing:
             if ~self.plotted_connections
