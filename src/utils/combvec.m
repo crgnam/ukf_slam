@@ -1,7 +1,15 @@
-function [vec_pairs] = combvec(r1,r2)
-    r1_row = r1';
-    r2_row = r2';
-    r1_rep = repelem(r1_row,size(r2_row,1),1);
-    r2_rep = repmat(r2_row,size(r1_row,1),1);
-    vec_pairs = [r1_rep,r2_rep];
+function [vec_pairs] = combvec(r)
+    r_row = r';
+    num_rows = size(r_row,1);
+    
+    % Generate all pairs of vectors:
+    [A,B] = meshgrid(1:num_rows,1:num_rows);
+    c = cat(2,A',B');
+    d = reshape(c,[],2);
+    
+    % Remove pairs that are of the same vector:
+    d(d(:,1) == d(:,2),:) = [];
+    
+    % Create vector pairs:
+    vec_pairs = [r_row(d(:,1),:),r_row(d(:,2),:)];
 end

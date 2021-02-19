@@ -43,9 +43,10 @@ classdef UWB < handle
         % Calculate all of the range measurements:
         function [measurement,avail,vec_pairs] = measureRanges(self,satellite,body,std_meas)
             % Generate all pairs of connections:
-            vec_pairs = combvec(self.r, self.r(:,2:end));
+            vec_pairs = combvec(self.r);
             vec_pairs = [vec_pairs;
-                         repmat(satellite.r',self.num_transceivers,1), self.r'];
+                         repmat(satellite.r',self.num_transceivers,1), self.r';
+                         self.r', repmat(satellite.r',self.num_transceivers,1)];
 
             % Find pairs which are blocked by the body:
             origins = vec_pairs(:,1:3);
@@ -106,7 +107,7 @@ classdef UWB < handle
                 vec_pairs(~avail,:) = nan;
             else
                 num_pairs = factorial(self.num_transceivers)/factorial(self.num_transceivers - 2);
-                vec_pairs =  nan(num_pairs+self.num_transceivers,6);
+                vec_pairs =  nan(num_pairs+2*self.num_transceivers,6);
             end
             
             % Update the drawing:

@@ -36,7 +36,7 @@ angle_uwb_std = deg2rad(7); %(rad) uncertainty in PDoA angle measurements
 uwb = UWB(r_uwb,v_uwb, range_uwb_std,angle_uwb_std);
  
 % Time setup:
-dt = 5*60;
+dt = 10*60;
 orbital_period = 89836;
 % duration = 3*86400;
 duration = 2*orbital_period;
@@ -123,7 +123,7 @@ ukf_args = {dynamics_args, measurement_args};
 figure('units','normalized','outerposition',[0 0 1 1])
 vid = VideoWriter('results/uwb_ranges.mp4','MPEG-4');
 vid.FrameRate = 30;
-vid.Quality = 50;
+vid.Quality = 60;
 open(vid)
 for ii = 1:L-1
     % Move the scene forward one time step:
@@ -140,7 +140,7 @@ for ii = 1:L-1
 %     image_uwb = orex.image(uwb.r,optical_std);
     
     % Collect the UWB inter-transceiver range and angle measurements:
-%     range_meas = uwb.measureRanges(range_uwb_std,angle_uwb_std);
+    range_meas = uwb.measureRanges(orex,bennu,range_uwb_std);
 %     angle_meas = uwb.measureAngles(range_
     
     
