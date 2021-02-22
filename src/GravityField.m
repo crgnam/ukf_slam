@@ -3,15 +3,15 @@ classdef GravityField < handle
         Cnm_true %
         Snm_true %
         
-        gm_true  %(m^3/s^2)
+        mu_true  %(m^3/s^2)
         radius % (m)
     end
     
     %% Constructor 
     methods
-        function [self] = GravityField(radius, gm, Cnm, Snm)
+        function [self] = GravityField(radius, mu, Cnm, Snm)
             self.radius = radius;
-            self.gm_true = gm;
+            self.mu_true = mu;
             self.Cnm_true = Cnm;
             self.Snm_true = Snm;
         end
@@ -20,13 +20,13 @@ classdef GravityField < handle
     %% Public Methods
     methods (Access = public)
         % Calculate Acceleration:
-        function [accel] = acceleration(self, r, E, Cnm, Snm, gm)
+        function [accel] = acceleration(self, r, E, Cnm, Snm, mu)
             if nargin == 3
-                gm = self.gm_true;
+                mu  = self.mu_true;
                 Cnm = self.Cnm_true;
                 Snm = self.Snm_true;
             elseif nargin == 5
-                gm = self.gm_true;
+                mu = self.mu_true;
             end
 
             % Body-fixed position 
@@ -48,9 +48,9 @@ classdef GravityField < handle
             dUdlon = 0;
             q3 = 0; q2 = q3; q1 = q2;
             for n = 0:n_max
-                b1 = (-gm/d^2)*(self.radius/d)^n*(n+1);
-                b2 =  (gm/d)*(self.radius/d)^n;
-                b3 =  (gm/d)*(self.radius/d)^n;
+                b1 = (-mu/d^2)*(self.radius/d)^n*(n+1);
+                b2 =  (mu/d)*(self.radius/d)^n;
+                b3 =  (mu/d)*(self.radius/d)^n;
                 for m = 0:n
                     q1 = q1 + pnm(n+1,m+1)*(Cnm(n+1,m+1)*cos(m*lon)+Snm(n+1,m+1)*sin(m*lon));
                     q2 = q2 + dpnm(n+1,m+1)*(Cnm(n+1,m+1)*cos(m*lon)+Snm(n+1,m+1)*sin(m*lon));
@@ -73,6 +73,43 @@ classdef GravityField < handle
 
             % Inertial acceleration 
             accel = E'*a_bf;
+        end
+    end
+    
+    %% Public Visualization Methods:
+    methods (Access = public)
+        function [self] = draw(self,Cnm,Snm,mu)
+            % Check if alternative gravity field terms have been provided:
+            if nargin == 1
+                Cnm_use = self.Cnm_true;
+                Snm_use = self.Snm_true;
+                mu_use  = self.mu_true;
+            else
+                Cnm_use = Cnm;
+                Snm_use = Snm;
+                mu_use  = mu;
+            end
+            
+            % Setup the latitude and longitude:
+            latitude  = linspace(-pi/2,pi/2,180);
+            longitude = linspace(0, 2*pi,360);
+            
+            % Evaluate the field for specified el/az:
+            accel = zeros(numel(latitude),numel(longitude),3);
+            for ii = 1:length(latitude)
+                for jj = 1:length(longitude)
+                    [x,y,z] = sph2cart(longitude(jj),latitude(ii),self.radius);
+                    r = [x,y,z]';
+                    accel(ii,jj,:) = self.acceleration(r, eye(3), Cnm_use,Snm_use,mu_use);
+                end
+            end
+            
+            % Draw the field:
+            [~,accel_norm_field] = normw(accel);
+            surf(longitude,latitude,accel_norm_field,'EdgeColor','none')
+            colorbar
+            axis equal
+            view([0 90])
         end
     end
     
