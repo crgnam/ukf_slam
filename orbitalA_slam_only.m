@@ -303,6 +303,30 @@ t_ukf = regParams.t;
 S_ukf = regParams.s;
 estimated_map2 = (1/S_ukf)*R_ukf'*(estimated_map - t_ukf);
 traj = (1/S_ukf)*R_ukf'*(X_hat(1:3,:) - t_ukf);
+vel  = (1/S_ukf)*R_ukf'*(X_hat(4:6,:) - t_ukf);
+X_hat_end = [traj(:,end); vel(:,end);
+             estimated_map2(1,:)'; estimated_map2(2,:)'; estimated_map2(3,:)'];
+save('results/estimated_states_ROT_TRANS.mat','X_hat_end','P')
+disp(errorStats_ukf.errlsq)
+disp(errorStats_ukf.errmax)
+
+[regParams,~, errorStats_ukf] = absor(true_map,estimated_map,'doScale',true,'doTrans',true);
+R_ukf = regParams.R;
+t_ukf = regParams.t;
+S_ukf = regParams.s;
+estimated_map2 = (1/S_ukf)*R_ukf'*(estimated_map - t_ukf);
+traj = (1/S_ukf)*R_ukf'*(X_hat(1:3,:) - t_ukf);
+vel  = (1/S_ukf)*R_ukf'*(X_hat(4:6,:) - t_ukf);
+X_hat_end = [traj(:,end); vel(:,end);
+             estimated_map2(1,:)'; estimated_map2(2,:)'; estimated_map2(3,:)'];
+save('results/estimated_states_ROT_TRANS_SCALE.mat','X_hat_end','P')
+disp(errorStats_ukf.errlsq)
+disp(errorStats_ukf.errmax)
+
+load('handel.mat')
+player = audioplayer(y,Fs);
+play(player);
+disp('completed')
 
 % figure('units','normalized','outerposition',[0 0 1 1])
 % C = [linspace(1,0,size(true_map,2))',linspace(0,0,size(true_map,2))' ,linspace(0,1,size(true_map,2))'];
