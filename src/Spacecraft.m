@@ -79,29 +79,30 @@ classdef Spacecraft < handle
             [imagePoints,inFOV] = self.camera.worldToImage(points,self.rotmat,self.r);
             
             % Detect points that are not occluded by the body:
-            cameraNorms = self.rotmat*body.lmk_norms_i;
-            inview = cameraNorms(3,:)>0;
+%             cameraNorms = self.rotmat*body.lmk_norms_i;
+%             inview = cameraNorms(3,:)>0;
             
             % Detect points which meet with viewing angle requirement:
-            rays   = normc(body.lmks_i - self.r);
-            angled = acos(sum(rays.*-body.lmk_norms_i,1)) < self.camera.max_va;
+%             rays   = normc(body.lmks_i - self.r);
+%             angled = acos(sum(rays.*-body.lmk_norms_i,1)) < self.camera.max_va;
             
             % Detect points that are illuminated:
-            if norm(body.sun_vec) == 0
-                illuminated = true;
-            else
-                dir_sgn = sum(body.sun_vec.*body.lmk_norms_i,1);
-                illuminated = dir_sgn>0;
-            end
+%             if norm(body.sun_vec) == 0
+%                 illuminated = true;
+%             else
+%                 dir_sgn = sum(body.sun_vec.*body.lmk_norms_i,1);
+%                 illuminated = dir_sgn>0;
+%             end
             
             % Select only points that are in FOV, illuminated, and visible:
-            visible = inFOV & inview & angled & illuminated;
-            lmk_inds = 1:size(body.lmks_i,2);
-            lmk_inds = lmk_inds(visible);
-            imagePoints = imagePoints(:,visible);
+%             visible = inFOV & inview & angled & illuminated;
+%             lmk_inds = 1:size(body.lmks_i,2);
+%             lmk_inds = lmk_inds(visible);
+%             imagePoints = imagePoints(:,visible);
             imagePoints = -imagePoints; % Import for ray tracing steps
             
             % Add noise to the measurement image points:
+            visible = true(size(imagePoints));
             imagePoints = imagePoints + sig_meas*randn(size(imagePoints));
         end
     end
